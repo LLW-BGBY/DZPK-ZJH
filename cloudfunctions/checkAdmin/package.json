@@ -1,0 +1,9 @@
+{
+  "name": "checkAdmin",
+  "version": "1.0.0",
+  "description": "检查当前用户是否为管理员",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

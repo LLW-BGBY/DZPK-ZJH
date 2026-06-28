@@ -1,0 +1,51 @@
+<view class="container">
+  <view class="hero">
+    <text class="hero-icon">🎴</text>
+    <text class="hero-title">纸牌桌</text>
+    <text class="hero-subtitle">好友聚会 · 实时联机</text>
+  </view>
+
+  <view class="notice" wx:if="{{currentAnnounce}}">
+    <text class="notice-title">📢 {{currentAnnounce.title || '公告'}}</text>
+    <text class="notice-text">{{currentAnnounce.content}}</text>
+    <view class="notice-dots" wx:if="{{announcements.length > 1}}">
+      <view class="dot {{index === announceIndex ? 'active' : ''}}" wx:for="{{announcements}}" wx:key="_id" bindtap="onSwitchAnnounce" data-index="{{index}}"></view>
+    </view>
+  </view>
+
+  <view class="notice notice-static" wx:else>
+    <text class="notice-title">📱 使用提示</text>
+    <text class="notice-text">创建房间后获得6位房间号，分享给好友，各自在手机上打开小程序输入房间号即可加入。</text>
+  </view>
+
+  <view class="mode-card" bindtap="onCreateTexas">
+    <text class="mode-icon">🃏</text>
+    <view class="mode-info">
+      <text class="mode-title">创建房间 · 德州扑克</text>
+      <text class="mode-desc">经典德州扑克，2-16人对战</text>
+    </view>
+    <text class="mode-arrow">›</text>
+  </view>
+
+  <view class="mode-card" bindtap="onCreateZJH">
+    <text class="mode-icon">♠️</text>
+    <view class="mode-info">
+      <text class="mode-title">创建房间 · 炸金花</text>
+      <text class="mode-desc">明暗牌博弈，2-16人比牌</text>
+    </view>
+    <text class="mode-arrow">›</text>
+  </view>
+
+  <view class="mode-card join-card" bindtap="onJoinRoom">
+    <text class="mode-icon">→</text>
+    <view class="mode-info">
+      <text class="mode-title">加入房间</text>
+      <text class="mode-desc">输入6位房间号，加入好友的房间</text>
+    </view>
+    <text class="mode-arrow">›</text>
+  </view>
+
+  <button class="btn-share" open-type="share">
+    <text>📤 分享给好友</text>
+  </button>
+</view>

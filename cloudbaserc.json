@@ -1,0 +1,6 @@
+module.exports = {
+  "env": "texas-poker-prod",
+  "timeout": 10,
+  "memorySize": 128,
+  "runtime": "Nodejs12"
+}

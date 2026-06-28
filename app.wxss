@@ -1,0 +1,231 @@
+/**app.wxss — Global Design System**/
+
+/* ===== Design Tokens ===== */
+page {
+  --felt-deep: #0a1f12;
+  --felt-mid: #0f3d26;
+  --felt-light: #1a5c3a;
+  --gold: #f0d878;
+  --gold-dim: #e5c060;
+  --gold-glow: rgba(240, 216, 120, 0.35);
+  --crimson: #c41e3a;
+  --crimson-dark: #8b0000;
+  --emerald: #00e5a0;
+  --text-primary: #ffffff;
+  --text-secondary: #8a9a8e;
+  --text-muted: #5a6a5e;
+  --card-bg: rgba(26, 58, 26, 0.85);
+  --card-border: rgba(42, 90, 42, 0.6);
+  --radius-sm: 12rpx;
+  --radius-md: 20rpx;
+  --radius-lg: 32rpx;
+  --radius-xl: 48rpx;
+  --safe-top: env(safe-area-inset-top);
+  --safe-bottom: env(safe-area-inset-bottom);
+  --page-pad-x: 24rpx;
+  --page-pad-y: 24rpx;
+  --page-pad-bottom: calc(24rpx + var(--safe-bottom));
+  --content-max-width: 750rpx;
+
+  background-color: var(--felt-deep);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'SF Pro Display', 'Segoe UI', sans-serif;
+  box-sizing: border-box;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* ===== Felt Background ===== */
+.felt-bg {
+  background: radial-gradient(ellipse 120% 80% at 50% 30%, var(--felt-light) 0%, var(--felt-mid) 50%, var(--felt-deep) 100%);
+  min-height: 100vh;
+  min-height: 100dvh;
+  position: relative;
+  box-sizing: border-box;
+}
+.felt-bg::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(circle at 50% 40%, transparent 0%, rgba(0, 0, 0, 0.15) 100%);
+  pointer-events: none;
+}
+
+.container {
+  padding: var(--page-pad-y) var(--page-pad-x);
+  padding-bottom: var(--page-pad-bottom);
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* ===== Responsive page shell ===== */
+.page-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: var(--page-pad-y) var(--page-pad-x);
+  padding-bottom: var(--page-pad-bottom);
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* ===== Cards ===== */
+.card {
+  background: var(--card-bg);
+  border: 1rpx solid var(--card-border);
+  border-radius: var(--radius-md);
+  padding: 30rpx;
+  margin-bottom: 20rpx;
+  backdrop-filter: blur(10rpx);
+}
+
+/* ===== Typography ===== */
+.title {
+  font-size: 36rpx;
+  font-weight: 800;
+  color: var(--gold);
+  margin-bottom: 16rpx;
+  letter-spacing: 2rpx;
+}
+.subtitle {
+  font-size: 28rpx;
+  color: var(--text-secondary);
+  margin-bottom: 12rpx;
+}
+
+/* ===== Buttons ===== */
+.btn-primary {
+  background: linear-gradient(135deg, var(--gold-dim) 0%, var(--gold) 50%, var(--gold-dim) 100%);
+  background-size: 200% 100%;
+  color: #0d1f0d;
+  border-radius: var(--radius-xl);
+  padding: 24rpx 60rpx;
+  font-size: 32rpx;
+  font-weight: 700;
+  text-align: center;
+  margin: 20rpx 0;
+  border: none;
+  box-shadow: 0 4rpx 20rpx var(--gold-glow);
+  transition: all 0.2s ease;
+  animation: shimmer 3s linear infinite;
+}
+.btn-primary:active {
+  transform: scale(0.96);
+  box-shadow: 0 2rpx 10rpx var(--gold-glow);
+}
+
+.btn-secondary {
+  background: rgba(240, 216, 120, 0.12);
+  color: var(--gold);
+  border: 1rpx solid rgba(240, 216, 120, 0.4);
+  border-radius: var(--radius-xl);
+  padding: 20rpx 50rpx;
+  font-size: 28rpx;
+  text-align: center;
+  margin: 16rpx 0;
+  transition: all 0.2s ease;
+}
+.btn-secondary:active {
+  transform: scale(0.96);
+  background: rgba(240, 216, 120, 0.2);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #dc3c3c, #c41e3a);
+  color: #fff;
+  border-radius: var(--radius-xl);
+  padding: 20rpx 50rpx;
+  font-size: 28rpx;
+  text-align: center;
+  margin: 16rpx 0;
+  border: none;
+  box-shadow: 0 4rpx 12rpx rgba(196, 30, 58, 0.3);
+  transition: all 0.2s ease;
+}
+.btn-danger:active {
+  transform: scale(0.96);
+}
+
+/* ===== Tags ===== */
+.tag {
+  display: inline-block;
+  padding: 6rpx 16rpx;
+  border-radius: var(--radius-sm);
+  font-size: 22rpx;
+  margin-right: 10rpx;
+}
+.tag-gold {
+  background: rgba(240, 216, 120, 0.15);
+  color: var(--gold);
+  border: 1rpx solid rgba(240, 216, 120, 0.3);
+}
+.tag-green {
+  background: rgba(0, 229, 160, 0.12);
+  color: var(--emerald);
+  border: 1rpx solid rgba(0, 229, 160, 0.3);
+}
+
+/* ===== Global Animations ===== */
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30rpx); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-40rpx); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes dealCard {
+  0% { opacity: 0; transform: translateY(-80rpx) rotate(-15deg) scale(0.6); }
+  60% { opacity: 1; transform: translateY(8rpx) rotate(2deg) scale(1.05); }
+  100% { opacity: 1; transform: translateY(0) rotate(0) scale(1); }
+}
+
+@keyframes chipFly {
+  0% { opacity: 0; transform: translate(var(--from-x), var(--from-y)) scale(0.5); }
+  50% { opacity: 1; transform: translate(calc(var(--from-x) * 0.3), calc(var(--from-y) * 0.3)) scale(1.2); }
+  100% { opacity: 0; transform: translate(0, 0) scale(0.8); }
+}
+
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 8rpx rgba(240, 216, 120, 0.2); }
+  50% { box-shadow: 0 0 24rpx rgba(240, 216, 120, 0.5); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8rpx); }
+}
+
+@keyframes spin3D {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(360deg); }
+}
+
+@keyframes ringPulse {
+  0% { transform: scale(0.95); opacity: 1; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "rebuy",
+  "version": "1.0.0",
+  "description": "玩家补充筹码",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

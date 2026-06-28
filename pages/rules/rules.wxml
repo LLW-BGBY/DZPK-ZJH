@@ -1,0 +1,58 @@
+<view class="felt-bg container">
+  <view class="title">德州扑克规则</view>
+
+  <view class="card">
+    <view class="rule-section">
+      <text class="rule-heading">1. 基本流程</text>
+      <text class="rule-body">每局游戏分为五个阶段：翻牌前（PRE_FLOP）→ 翻牌（FLOP）→ 转牌（TURN）→ 河牌（RIVER）→ 摊牌（SHOWDOWN）。每位玩家发2张底牌（只有自己可见），桌面逐步发出5张公共牌。</text>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="rule-section">
+      <text class="rule-heading">2. 下注轮</text>
+      <text class="rule-body">每个阶段玩家可依次选择：
+• 过牌（Check）—— 不追加下注，把决定权交给下家
+• 跟注（Call）—— 跟上当前最高注额
+• 加注（Raise）—— 提高当前注额
+• 全押（All-in）—— 将所有筹码押上
+• 弃牌（Fold）—— 放弃本局，已下注筹码归底池</text>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="rule-section">
+      <text class="rule-heading">3. 牌型大小（从大到小）</text>
+      <view class="hand-ranks">
+        <view class="hand-item" wx:for="{{handRanks}}" wx:key="index">
+          <text class="hand-rank">{{item.rank}}</text>
+          <text class="hand-name">{{item.name}}</text>
+          <text class="hand-desc">{{item.desc}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="rule-section">
+      <text class="rule-heading">4. 胜负判定</text>
+      <text class="rule-body">摊牌时，每位玩家从自己的2张底牌 + 桌面5张公共牌中，选出最佳的5张牌组合。牌型最大者赢得底池。若牌型相同，则比较牌面大小（踢脚）。</text>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="rule-section">
+      <text class="rule-heading">5. 本地多人玩法</text>
+      <text class="rule-body">本小程序支持好友围坐一桌，轮流在同一台设备上操作。每人看清自己的底牌后，记住自己的手牌，将手机递给下一位玩家。系统会自动隐藏其他玩家的底牌，保护隐私。</text>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="rule-section">
+      <text class="rule-heading">6. AI陪练模式</text>
+      <text class="rule-body">选择「单机对战」即可与AI玩家对战。AI具有不同的策略风格，适合练习和熟悉规则。</text>
+    </view>
+  </view>
+
+  <button class="btn-secondary" bindtap="backToHome" style="margin-top: 40rpx;">返回首页</button>
+</view>

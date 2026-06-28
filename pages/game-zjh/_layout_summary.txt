@@ -1,0 +1,38 @@
+炸金花界面布局优化摘要 (v2)
+
+核心问题：操作按钮区域被挤出屏幕底部
+
+根本原因：
+1. 小程序页面没有设置 page { height: 100%; }，导致子元素 height: 100% 不生效
+2. 牌桌椭圆形使用固定高度百分比，导致布局不可控
+3. 缺少 flex-shrink: 0 保护固定高度区域
+4. 各元素尺寸偏大约束了可用空间
+
+修复方案（按重要性排序）：
+
+1. 基础布局修复 (最关键)：
+   - 添加 page { height: 100%; width: 100%; } - 小程序必需
+   - .zjh-root: height: 100vh; overflow: hidden;
+   - .zjh-game: height: 100%; flex-direction: column; overflow: hidden;
+
+2. Flex 布局关键规则：
+   - .zjh-game-header: flex-shrink: 0 (不被压缩)
+   - .zjh-pos-bar: flex-shrink: 0 (不被压缩)
+   - .zjh-table-wrap: flex: 1; min-height: 0; (占据剩余空间)
+   - .zjh-table-oval: flex: 1; min-height: 0; max-height: 100%; (牌桌自适应)
+   - .zjh-my-hand-wrap: flex-shrink: 0 (手牌固定)
+   - .zjh-action-wrap: flex-shrink: 0 (操作按钮固定)
+
+3. 尺寸优化：
+   - 牌桌宽度：85% → 80% (间接减少高度)
+   - 牌桌 overflow: hidden (防止内容溢出)
+   - 操作按钮高度：68rpx → 56rpx
+   - 操作按钮字体：28rpx → 26rpx
+   - 操作按钮 padding-bottom: calc(8rpx + env(safe-area-inset-bottom))
+   - 手牌模块 padding: 8rpx → 4rpx
+   - 状态标签字体：22rpx → 18rpx
+
+4. 布局逻辑：
+   操作按钮区域 (flex-shrink: 0) → 始终完整可见
+   牌桌区域 (flex: 1) → 占据剩余空间，自动压缩
+   游戏头部/状态条 (flex-shrink: 0) → 不被压缩

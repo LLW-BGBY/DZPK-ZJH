@@ -1,0 +1,217 @@
+<view class="container">
+  <!-- 个人资料设置弹窗（首次使用） -->
+  <view class="modal {{showProfileModal ? 'show' : ''}}" wx:if="{{showProfileModal}}">
+    <view class="modal-content" catchtap="stopBubble">
+      <view class="modal-header">
+        <view class="modal-title">设置你的头像和昵称</view>
+      </view>
+      <view class="profile-setup">
+        <button class="avatar-picker" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+          <image class="avatar-preview" src="{{profileAvatar}}" mode="aspectFill" wx:if="{{profileAvatar}}"></image>
+          <text class="avatar-placeholder" wx:else>👤</text>
+          <text class="avatar-hint">点击设置头像</text>
+        </button>
+        <input class="input input-nickname" type="nickname" value="{{profileName}}" placeholder="请输入或使用微信昵称" bindinput="onProfileNameInput" />
+      </view>
+      <view class="modal-buttons">
+        <button class="btn btn-cancel" bindtap="onSkipProfile">跳过</button>
+        <button class="btn btn-primary" bindtap="onSaveProfile">保存</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 创建房间弹窗 -->
+  <view class="modal {{showCreateModal ? 'show' : ''}}" wx:if="{{showCreateModal}}" bindtap="onHideCreateModal">
+    <view class="modal-content" catchtap="stopBubble">
+      <view class="modal-header">
+        <view class="modal-title">创建房间</view>
+        <view class="modal-close" bindtap="onHideCreateModal">✕</view>
+      </view>
+
+      <!-- 游戏模式选择 -->
+      <view class="form-group">
+        <text class="label">游戏模式</text>
+        <view class="game-type-selector">
+          <view class="gt-option {{gameType==='texas'?'active':''}}" bindtap="onSelectGameType" data-type="texas">
+            <text class="gt-icon">🃏</text>
+            <text class="gt-name">德州扑克</text>
+          </view>
+          <view class="gt-option {{gameType==='zjh'?'active':''}}" bindtap="onSelectGameType" data-type="zjh">
+            <text class="gt-icon">♠️</text>
+            <text class="gt-name">炸金花</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="form-group">
+        <text class="label">房间名称</text>
+        <input class="input" value="{{roomName}}" placeholder="输入房间名称" maxlength="20" bindinput="onRoomNameInput" />
+      </view>
+
+      <view class="form-row">
+        <view class="form-group half">
+          <text class="label">人数上限</text>
+          <input class="input" type="number" value="{{maxPlayers}}" placeholder="2-16" bindinput="onMaxPlayersInput" bindblur="onMaxPlayersBlur" />
+        </view>
+        <view class="form-group half">
+          <text class="label">初始筹码</text>
+          <input class="input" type="number" value="{{defaultChips}}" placeholder="100-100000" bindinput="onChipsInput" bindblur="onChipsBlur" />
+        </view>
+      </view>
+
+      <!-- 德州扑克专属：盲注 -->
+      <view class="form-row" wx:if="{{gameType==='texas'}}">
+        <view class="form-group half">
+          <text class="label">小盲注</text>
+          <input class="input" type="number" value="{{smallBlind}}" placeholder="1-10000" bindinput="onSmallBlindInput" bindblur="onSmallBlindBlur" />
+        </view>
+        <view class="form-group half">
+          <text class="label">大盲注</text>
+          <input class="input" type="number" value="{{bigBlind}}" placeholder="2-20000" bindinput="onBigBlindInput" bindblur="onBigBlindBlur" />
+        </view>
+      </view>
+
+      <!-- 炸金花专属：底注 & 封顶轮数 -->
+      <view class="form-row" wx:if="{{gameType==='zjh'}}">
+        <view class="form-group half">
+          <text class="label">底注</text>
+          <input class="input" type="number" value="{{zjhBaseBet}}" placeholder="1-100" bindinput="onZjhBaseBetInput" bindblur="onZjhBaseBetBlur" />
+        </view>
+        <view class="form-group half">
+          <text class="label">封顶轮数</text>
+          <input class="input" type="number" value="{{zjhMaxRounds}}" placeholder="5-50" bindinput="onZjhMaxRoundsInput" bindblur="onZjhMaxRoundsBlur" />
+        </view>
+      </view>
+
+      <!-- 密码设置 -->
+      <view class="form-group">
+        <view class="label-row">
+          <text class="label">房间密码</text>
+          <switch class="pwd-toggle" checked="{{enablePassword}}" bindchange="onEnablePasswordChange" color="#f0d878" />
+        </view>
+        <input wx:if="{{enablePassword}}" class="input input-pwd" type="text" password maxlength="12"
+          value="{{roomPassword}}" placeholder="输入房间密码（可选）" bindinput="onRoomPasswordInput" />
+        <text wx:else class="label-hint">开启后加入需要输入密码</text>
+      </view>
+
+      <view class="modal-buttons">
+        <button class="btn btn-cancel" bindtap="onHideCreateModal">取消</button>
+        <button class="btn btn-primary" bindtap="createRoom" loading="{{isLoading}}">创建房间</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 加入房间弹窗 -->
+  <view class="modal {{showJoinModal ? 'show' : ''}}" wx:if="{{showJoinModal}}" bindtap="onHideJoinModal">
+    <view class="modal-content" catchtap="stopBubble">
+      <view class="modal-header">
+        <view class="modal-title">加入房间</view>
+        <view class="modal-close" bindtap="onHideJoinModal">✕</view>
+      </view>
+      <view class="form-group">
+        <text class="label">房间号</text>
+        <input class="input input-room" type="number" value="{{joinRoomNumber}}" placeholder="输入6位房间号" maxlength="6" bindinput="onJoinRoomNumberInput" />
+      </view>
+      <!-- 密码输入框（有密码的房间才显示）-->
+      <view class="form-group" wx:if="{{joinNeedPassword}}">
+        <text class="label">房间密码 🔒</text>
+        <input class="input input-pwd" type="text" password maxlength="12"
+          value="{{joinRoomPassword}}" placeholder="输入房间密码" bindinput="onJoinPasswordInput" />
+      </view>
+      <view class="modal-buttons">
+        <button class="btn btn-cancel" bindtap="onHideJoinModal">取消</button>
+        <button class="btn btn-primary" bindtap="joinRoom" loading="{{isLoading}}">加入房间</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 主内容 -->
+  <view class="hero">
+    <view class="hero-icon">🎰</view>
+    <text class="hero-title">纸牌桌</text>
+    <text class="hero-subtitle">多设备联机 · 实时对战 · 2-16人</text>
+  </view>
+
+  <!-- 管理员公告入口 -->
+  <view class="admin-bar" wx:if="{{isAdmin}}">
+    <button class="btn-admin" bindtap="onShowAnnounceModal">📢 发布公告</button>
+  </view>
+
+  <view class="action-bar">
+    <button class="action-btn btn-create" bindtap="onShowCreateModal">
+      <text class="btn-icon">+</text>
+      <text>创建房间</text>
+    </button>
+    <button class="action-btn btn-join" bindtap="onShowJoinModal">
+      <text class="btn-icon">→</text>
+      <text>加入房间</text>
+    </button>
+  </view>
+
+  <!-- 我的房间列表 -->
+  <view class="section" wx:if="{{myRooms.length > 0}}">
+    <text class="section-title">我的房间</text>
+    <view class="room-list">
+      <view class="room-swipe-wrap" wx:for="{{myRooms}}" wx:key="_id">
+        <view class="room-delete-btn" data-id="{{item._id}}" catchtap="onDeleteRoom">删除</view>
+        <view class="room-card {{item._id === swipedRoomId ? 'swiped' : ''}}"
+          data-id="{{item._id}}"
+          bindtouchstart="onTouchStart"
+          bindtouchmove="onTouchMove"
+          bindtouchend="onTouchEnd"
+          bindtap="onRoomTap">
+          <view class="room-info">
+            <view class="room-name-row">
+              <text class="room-name">{{item.roomName}}</text>
+              <text class="room-lock" wx:if="{{item.hasPassword}}">🔒</text>
+              <text class="room-game-badge {{item.gameType==='zjh'?'badge-zjh':'badge-texas'}}">{{item.gameType==='zjh'?'炸金花':'德州'}}</text>
+            </view>
+            <text class="room-number">房间号: {{item.roomNumber}}</text>
+            <text class="room-meta">{{item.players.length}}/{{item.maxPlayers}} 人 · {{item.status === 'waiting' ? '等待中' : '游戏中'}}</text>
+          </view>
+          <view class="room-status {{item.status}}">
+            <text>{{item.status === 'waiting' ? '等待' : '游戏中'}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty-tip" wx:else>
+    <text class="empty-icon">🎴</text>
+    <text class="empty-title">还没有房间</text>
+    <text class="empty-desc">创建或加入一个房间开始游戏</text>
+  </view>
+
+  <!-- 管理员发布公告弹窗 -->
+  <view class="modal {{showAnnounceModal ? 'show' : ''}}" wx:if="{{showAnnounceModal}}" bindtap="onHideAnnounceModal">
+    <view class="modal-content" catchtap="stopBubble">
+      <view class="modal-header">
+        <view class="modal-title">发布公告</view>
+        <view class="modal-close" bindtap="onHideAnnounceModal">✕</view>
+      </view>
+      <view class="form-group">
+        <text class="label">标题</text>
+        <input class="input" value="{{announceTitle}}" placeholder="公告标题" maxlength="30" bindinput="onAnnounceTitleInput" />
+      </view>
+      <view class="form-group">
+        <text class="label">内容</text>
+        <textarea class="input input-area" value="{{announceContent}}" placeholder="公告内容" maxlength="200" bindinput="onAnnounceContentInput" />
+      </view>
+      <view class="form-row">
+        <view class="form-group half">
+          <text class="label">优先级</text>
+          <input class="input" type="number" value="{{announcePriority}}" placeholder="0-9" bindinput="onAnnouncePriorityInput" />
+        </view>
+        <view class="form-group half">
+          <text class="label">展示天数</text>
+          <input class="input" type="number" value="{{announceDuration}}" placeholder="默认7天" bindinput="onAnnounceDurationInput" />
+        </view>
+      </view>
+      <view class="modal-buttons">
+        <button class="btn btn-cancel" bindtap="onHideAnnounceModal">取消</button>
+        <button class="btn btn-primary" bindtap="addAnnouncement" loading="{{isLoading}}">发布</button>
+      </view>
+    </view>
+  </view>
+</view>

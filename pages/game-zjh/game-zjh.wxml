@@ -1,0 +1,530 @@
+<view class="zjh-root">
+  <!-- Loading -->
+  <view class="loading" wx:if="{{isLoading}}">
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <!-- 错误 -->
+  <view class="error-box" wx:if="{{!isLoading && !room}}">
+    <text>⚠️ 加载失败</text>
+    <button bindtap="onRetryLoad" class="btn-sm">重试</button>
+    <button bindtap="onLeaveRoom" class="btn-sm">返回</button>
+  </view>
+
+  <!-- 自动开始过渡遮罩 -->
+  <view class="transition-overlay" wx:if="{{autoStarting && startCountdown === 0 && !isLoading}}">
+    <view class="transition-box">
+      <text class="transition-icon">🃏</text>
+      <text class="transition-title">正在开始下一局...</text>
+      <text class="transition-sub">发牌中，请稍候 ⏳</text>
+    </view>
+  </view>
+
+  <!-- 游戏头部（游戏中显示） -->
+  <view class="zjh-game-header" wx:if="{{room && !autoStarting && room.status !== 'waiting'}}">
+    <view class="zjh-gh-left" bindtap="onCopyRoomNumber">
+      <text class="zjh-gh-num">{{room.roomNumber}}</text>
+      <text class="zjh-gh-copy">复制</text>
+    </view>
+    <view class="zjh-gh-mid">
+      <text class="zjh-gh-badge">炸金花</text>
+      <text class="zjh-gh-sep">|</text>
+      <text class="zjh-gh-info">底注{{zjh_baseBet}}</text>
+      <text class="zjh-gh-sep">|</text>
+      <text class="zjh-gh-info {{zjh_capWarning?'zjh-cap-warning':''}}">{{zjh_roundsLeft}}/{{zjh_maxRounds}}轮</text>
+      <text class="zjh-gh-sep">|</text>
+      <text class="zjh-gh-info">{{room.players.length}}人</text>
+    </view>
+    <view class="zjh-gh-right">
+      <text class="zjh-gh-leave" bindtap="onLeaveRoom">🚪</text>
+    </view>
+  </view>
+
+  <!-- 等待界面 -->
+  <block wx:if="{{room && room.status === 'waiting' && !(autoStarting && startCountdown === 0)}}">
+    <view class="wait-area">
+      <view class="wait-room-card">
+        <view class="wait-room-compact-head">
+          <view class="wait-room-title-wrap">
+            <text class="wait-room-name">{{room.roomName}}</text>
+            <text class="wait-room-lock" wx:if="{{room.hasPassword}}">🔒</text>
+          </view>
+          <view class="wait-room-num-wrap" bindtap="onCopyRoomNumber">
+            <text class="wait-room-num">{{room.roomNumber}}</text>
+            <text class="wait-room-copy">复制</text>
+          </view>
+        </view>
+        <view class="wait-room-meta">
+          <text class="zjh-game-type-badge">炸金花</text>
+          <text class="wait-meta-dot">·</text>
+          <text>底注 {{zjh_baseBet}}</text>
+          <text class="wait-meta-dot">·</text>
+          <text>封顶 {{zjh_maxRounds}}轮</text>
+          <text class="wait-meta-dot">·</text>
+          <text>{{room.players.length}}/{{room.maxPlayers}}人</text>
+          <text class="wait-meta-dot">·</text>
+          <text>{{activePlayerCount}}人有筹码</text>
+        </view>
+        <view class="wait-action-row">
+          <button class="wait-action-btn wait-action-invite" plain="true" bindtap="onShareRoom">
+            <text class="wait-action-icon">📤</text>
+            <text class="wait-action-label">邀请好友</text>
+          </button>
+          <button class="wait-action-btn wait-action-leave" plain="true" bindtap="onLeaveRoom">
+            <text class="wait-action-icon">🚪</text>
+            <text class="wait-action-label">离开房间</text>
+          </button>
+        </view>
+      </view>
+      <text class="wait-section-title">玩家列表</text>
+      <view class="wait-list">
+        <view class="wait-card {{p.isReady?'ready':''}} {{p.chips<=0?'bust':''}}" wx:for="{{zjh_players}}" wx:key="openId" wx:for-item="p">
+          <image src="{{p.avatarUrl}}" mode="aspectFill" class="avatar" wx:if="{{p.avatarUrl}}" binderror="onAvatarError"></image>
+          <text wx:else class="avatar-txt">{{p.chips>0?(p.isReady?'✅':'👤'):'💀'}}</text>
+          <text class="name">{{p.name}}</text>
+          <text wx:if="{{p.chips>0}}" class="chips">{{p.chips}}筹码</text>
+          <text wx:else class="bust">出局</text>
+          <text wx:if="{{p.chips>0}}" class="ready-badge {{p.isReady?'done':''}}">{{p.isReady?'已准备':'未准备'}}</text>
+        </view>
+        <view class="wait-card empty" wx:for="{{room.maxPlayers - zjh_players.length}}" wx:key="idx">
+          <text class="avatar-txt">➕</text>
+          <text class="name">等待加入</text>
+        </view>
+      </view>
+      <view class="wait-chat-log" wx:if="{{chatMessages.length > 0}}">
+        <text class="wait-chat-title">💬 聊天记录</text>
+        <scroll-view class="wait-chat-scroll" scroll-y scroll-into-view="wait-chat-{{chatMessages.length-1}}">
+          <view class="wait-chat-item {{item.type}}" wx:for="{{chatMessages}}" wx:key="time" id="wait-chat-{{index}}">
+            <text class="wait-chat-name">{{item.name}}:</text>
+            <text class="wait-chat-text">{{item.message}}</text>
+          </view>
+        </scroll-view>
+      </view>
+      <button class="btn-ready {{myPlayer.isReady?'done':''}}" bindtap="onReadyToggle" wx:if="{{myPlayer}}">{{myPlayer.isReady?'✅ 已准备':'准备'}}</button>
+      <button class="btn-rebuy" bindtap="onShowRebuy" wx:if="{{myPlayer && canRebuy}}">💰 补充筹码</button>
+      <button class="btn-chat" bindtap="onToggleChat" wx:if="{{myPlayer}}">
+        <text>💬 聊天</text>
+        <view class="chat-unread-badge" wx:if="{{chatUnread > 0}}">{{chatUnread}}</view>
+      </button>
+      <button class="btn-start" bindtap="onStartGame" wx:if="{{isCreator && allPlayersReady && startCountdown <= 0}}">开始游戏</button>
+
+      <!-- 内联自动开始倒计时 -->
+      <view class="inline-countdown" wx:if="{{startCountdown > 0}}">
+        <text class="inline-countdown-icon">⏱</text>
+        <text class="inline-countdown-label">{{startCountdown}}秒后自动开始</text>
+        <button class="countdown-cancel-btn" wx:if="{{isCreator}}" bindtap="onCancelCountdown">取消</button>
+      </view>
+    </view>
+  </block>
+
+  <!-- ============================ -->
+  <!-- 游戏界面 - 参考德州扑克设计 -->
+  <!-- ============================ -->
+  <view class="zjh-game" wx:if="{{room && room.status === 'playing'}}">
+
+    <!-- 横向玩家状态条 -->
+    <scroll-view class="zjh-pos-bar" scroll-x scroll-into-view="zjh-pos-{{room.currentPlayerIndex}}" scroll-with-animation wx:if="{{zjh_players && zjh_players.length > 0}}">
+      <block wx:for="{{zjh_players}}" wx:key="openId" wx:for-index="idx" wx:for-item="p">
+        <view class="zjh-pos-item {{room.currentPlayerIndex===idx?'active':''}} {{!p.isActive && !p.isAllIn?'folded':''}} {{p.chips<=0?'busted':''}}" id="zjh-pos-{{idx}}">
+          <text class="zjh-pos-name">{{p.name}}</text>
+          <text class="zjh-pos-status" wx:if="{{idx !== room.dealerIndex}}">{{p.chips<=0?'出局':!p.isActive && !p.isAllIn?'弃牌':p.isAllIn?'ALL IN':'待行动'}}</text>
+          <text class="zjh-pos-status dealer" wx:else>庄</text>
+          <text class="zjh-pos-chips">{{p.chips}}</text>
+        </view>
+      </block>
+    </scroll-view>
+
+    <!-- 桌面环形区域 -->
+    <view class="zjh-table-wrap">
+
+      <!-- 桌面主体 - 椭圆形 -->
+      <view class="zjh-table-oval">
+
+        <!-- 底池 -->
+        <view class="zjh-pot-center">
+          <text class="zjh-pot-icon">🪙</text>
+          <text class="zjh-pot-num">{{zjh_pot}}</text>
+        </view>
+
+        <!-- 轮次进度 -->
+        <view class="zjh-cap-progress">
+          <view class="zjh-cap-progress-bar" style="width: {{zjh_roundsLeft/zjh_maxRounds*100}}%"></view>
+          <text class="zjh-cap-label">{{zjh_roundsLeft}}/{{zjh_maxRounds}}轮</text>
+        </view>
+
+        <!-- 牌桌中央水印 -->
+        <view class="zjh-table-watermark">
+          <text class="zjh-watermark-desc">炸金花 · 底注{{zjh_baseBet}}</text>
+          <view class="zjh-watermark-brand">
+            <text class="zjh-brand-icon">☰</text>
+            <text class="zjh-brand-text">简单GTO</text>
+          </view>
+        </view>
+
+        <!-- 回合信息 -->
+        <view class="zjh-phase-info">
+          <text class="zjh-phase-text">{{zjh_phase==='PLAYING'?'进行中':zjh_phase}}</text>
+          <text class="zjh-countdown-txt" wx:if="{{zjh_countdown > 0 && isMyTurn}}">⏱ {{zjh_countdown}}s</text>
+          <text class="zjh-waiting-hint" wx:if="{{zjh_showWaitingHint}}">⏳ 等待其他玩家...</text>
+        </view>
+
+        <!-- 牌桌实时日志 -->
+        <scroll-view class="zjh-table-log" scroll-y>
+          <view class="zjh-table-log-item {{it.type}}" wx:for="{{zjh_gameHistory}}" wx:key="time" wx:for-item="it">
+            <text>{{it.message}}</text>
+          </view>
+          <view class="zjh-table-log-empty" wx:if="{{zjh_gameHistory.length === 0}}">
+            <text>暂无记录</text>
+          </view>
+        </scroll-view>
+
+        <!-- 玩家环形位置 -->
+        <view class="zjh-ring-seat" style="top: {{ringPositions[idx].top}}; left: {{ringPositions[idx].left}}" wx:for="{{ringPlayers}}" wx:key="openId" wx:for-index="idx" wx:for-item="p">
+          <view class="zjh-ring-card {{room.currentPlayerIndex===ringIndices[idx]?'active':''}} {{p.isFolded?'fold':''}} {{p.isAllIn?'allin':''}}">
+            <view class="zjh-ring-dealer" wx:if="{{room.dealerIndex === ringIndices[idx]}}">D</view>
+            <view class="zjh-ring-avatar">
+              <image src="{{p.avatarUrl}}" mode="aspectFill" wx:if="{{p.avatarUrl}}" binderror="onAvatarError"></image>
+              <text wx:else>{{p.chips<=0?'💀':p.isAllIn?'🔥':p.isActive?'👤':'🏳️'}}</text>
+            </view>
+            <view class="zjh-ring-dark-badge" wx:if="{{p.isActive && p.chips > 0 && p.zjh_isDark}}">暗</view>
+            <view class="zjh-ring-ming-badge" wx:if="{{p.isActive && p.chips > 0 && !p.zjh_isDark}}">明</view>
+            <view class="zjh-ring-compare-badge" wx:if="{{p.isComparing}}">比牌</view>
+            <text class="zjh-ring-name">{{p.name}}</text>
+            <text class="zjh-ring-chips">{{p.chips}}</text>
+            <view class="zjh-ring-rebuy" wx:if="{{p.rebuyCount > 0}}">
+              <text>💩</text>
+              <text wx:if="{{p.rebuyCount > 1}}">💩</text>
+              <text wx:if="{{p.rebuyCount > 2}}">💩</text>
+            </view>
+            <text class="zjh-ring-badge" wx:if="{{p.isFolded}}">弃牌</text>
+            <text class="zjh-ring-badge badge-allin" wx:elif="{{p.isAllIn}}">ALL IN</text>
+            <text class="zjh-ring-badge badge-bust" wx:elif="{{p.chips<=0}}">出局</text>
+          </view>
+        </view>
+
+      </view>
+      <!-- 我方手牌模块 - 牌桌下方、操作区上方 -->
+        <view class="zjh-my-hand-wrap" wx:if="{{myPlayer && myPlayer.holeCards && myPlayer.holeCards.length > 0}}">
+
+          <!-- 状态标签 -->
+          <view class="zjh-handtag">
+            <text class="zjh-my-dark-label" wx:if="{{zjh_isDark}}">🔒 暗牌</text>
+            <text class="zjh-my-ming-label" wx:else>👁️ 明牌</text>
+            <text wx:if="{{zjh_callAmount>0 && !myPlayer.isAllIn}}" class="zjh-my-call-tag">需{{myPlayer.chips<=zjh_callAmount?'全押':'跟注'}} {{zjh_callAmount}}</text>
+            <text wx:if="{{isMyTurn}}" class="zjh-my-turn-tag">⏰ 你的回合</text>
+          </view>
+
+          <!-- 手牌行：头像 | 手牌 | 聊天按钮 -->
+          <view class="zjh-myhand-row">
+            <!-- 我的头像 -->
+            <view class="zjh-myhand-avatar">
+              <image src="{{myPlayer.avatarUrl}}" mode="aspectFill" wx:if="{{myPlayer.avatarUrl}}" binderror="onAvatarError"></image>
+              <text wx:else>{{myPlayer.chips<=0?'💀':myPlayer.isAllIn?'🔥':'👤'}}</text>
+              <view class="zjh-myhand-dealer" wx:if="{{room.dealerIndex===zjh_selfIndex}}">D</view>
+              <text class="zjh-myhand-chips">{{myPlayer.chips}}</text>
+            </view>
+
+            <!-- 三张手牌 -->
+            <view class="zjh-myhand-cards">
+              <view class="zjh-hand-card {{zjh_isDark ? 'zjh-card-dark' : (c.suit==='H'||c.suit==='D'?'red':'black')}} {{c.suit==='H'||c.suit==='D'?'hand-red':''}}" wx:for="{{myPlayer.holeCards}}" wx:key="idx" wx:for-item="c">
+                <block wx:if="{{zjh_isDark}}">
+                  <view class="zjh-card-back-pattern"></view>
+                </block>
+                <block wx:else>
+                  <text class="zjh-hand-card-value">{{c.value}}</text>
+                  <text class="zjh-hand-card-suit">{{c.suit==='S'?'♠':c.suit==='H'?'♥':c.suit==='D'?'♦':'♣'}}</text>
+                </block>
+              </view>
+            </view>
+
+            <!-- 聊天按钮 -->
+            <view class="zjh-myhand-chat-btn" bindtap="onToggleChat" wx:if="{{room && room.status === 'playing'}}">
+              <text>💬</text>
+              <view class="chat-unread-badge" wx:if="{{chatUnread > 0}}">{{chatUnread}}</view>
+            </view>
+          </view>
+        </view>
+
+    </view>
+
+    <!-- 操作区域 -->
+    <view class="zjh-action-wrap" wx:if="{{zjh_showActionButtons || zjh_pendingAction}}">
+      <view class="zjh-action-row">
+        <view class="zjh-action-btn action-fold {{zjh_pendingAction==='zjh_fold'?'done':''}}" bindtap="onZjhFold">
+          <text>{{zjh_pendingAction==='zjh_fold'?'已弃牌':'弃牌'}}</text>
+        </view>
+        <view class="zjh-action-btn action-see {{zjh_pendingAction==='zjh_see'||!zjh_isDark?'done':''}}" bindtap="onZjhSee">
+          <text>{{zjh_isDark?'看牌':'已看'}}</text>
+        </view>
+        <view class="zjh-action-btn action-call {{zjh_pendingAction==='zjh_call'?'done':''}}" bindtap="onZjhCall">
+          <text>{{zjh_pendingAction==='zjh_call'?'已跟注':zjh_callButtonText}}</text>
+        </view>
+      </view>
+      <view class="zjh-action-row">
+        <view class="zjh-action-btn action-raise {{zjh_pendingAction==='zjh_raise'?'done':''}}" bindtap="onZjhShowRaise">
+          <text>{{zjh_pendingAction==='zjh_raise'?'已加注':'加注'}}</text>
+        </view>
+        <view class="zjh-action-btn action-compare {{zjh_pendingAction==='zjh_compare'?'done':''}}" bindtap="onZjhShowCompare">
+          <text>{{zjh_pendingAction==='zjh_compare'?'已比牌':'比牌'}}</text>
+        </view>
+        <view class="zjh-action-btn action-allin {{zjh_pendingAction==='zjh_allin'?'done':''}}" bindtap="onZjhAllIn">
+          <text>{{zjh_pendingAction==='zjh_allin'?'已全押':'梭哈'}}</text>
+        </view>
+      </view>
+    </view>
+
+  </view>
+
+  <!-- ============================ -->
+  <!-- 结算界面 -->
+  <!-- ============================ -->
+  <view class="end-box" wx:if="{{zjh_isGameEnded && !(autoStarting && startCountdown === 0) && !zjh_showCompareAnim}}">
+    <!-- 回合信息（移到顶部） -->
+    <view class="hand-info-bar" wx:if="{{zjh_isGameEnded}}">
+      <text class="hand-info-text">第 {{handCount}}/{{maxHands}} 回合</text>
+      <text class="hand-info-final" wx:if="{{isFinalHand}}">🏁 最终回合</text>
+    </view>
+
+    <text class="end-title">🎉 本局结束</text>
+
+    <!-- 实时聊天区（结算中也显示） -->
+    <view class="game-live-chat" wx:if="{{chatMessages.length > 0}}">
+      <scroll-view class="live-chat-scroll" scroll-y scroll-into-view="live-chat-{{chatMessages.length-1}}">
+        <view class="live-chat-item {{item.type}}" wx:for="{{chatMessages}}" wx:key="time" id="live-chat-{{index}}">
+          <text class="live-chat-name" wx:if="{{item.name}}">{{item.name}}:</text>
+          <text class="live-chat-text">{{item.message}}</text>
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- 摊牌 -->
+    <view class="hand-reveal" wx:if="{{zjh_allPlayersHand.length > 0}}">
+      <text class="hr-title">摊牌</text>
+      <view class="hr-card {{p.isWinner ? 'winner' : ''}} {{p.isFolded ? 'folded' : ''}}" wx:for="{{zjh_allPlayersHand}}" wx:key="openId" wx:for-item="p">
+        <image src="{{p.avatarUrl}}" mode="aspectFill" class="hr-av" wx:if="{{p.avatarUrl}}" binderror="onAvatarError"></image>
+        <text wx:else class="hr-av-txt">👤</text>
+        <view wx:if="{{p.rebuyCount > 0}}" class="hr-rebuy-icons">
+          <text>💩</text>
+          <text wx:if="{{p.rebuyCount > 1}}">💩</text>
+          <text wx:if="{{p.rebuyCount > 2}}">💩</text>
+        </view>
+        <view class="hr-info">
+          <text class="hr-name">{{p.name}}</text>
+          <text class="hr-hand {{p.isWinner ? 'win' : ''}}">{{p.handName || '?'}}</text>
+          <text class="hr-folded-tag" wx:if="{{p.isFolded}}">已弃牌</text>
+          <text class="hr-chips">剩余: {{p.chips}}</text>
+        </view>
+        <view class="hr-score-box">
+          <text class="hr-profit {{p.profit > 0 ? 'win' : (p.profit < 0 ? 'lose' : 'hr-profit-zero')}}">{{p.profit > 0 ? '+' : ''}}{{p.profit}}</text>
+        </view>
+        <view class="hr-cards">
+          <view class="hr-card-mini {{c.suit==='H'||c.suit==='D'?'red':'black'}}" wx:for="{{p.holeCards}}" wx:key="index" wx:for-item="c">
+            <text class="hr-cv">{{c.value}}</text>
+            <text class="hr-cs">{{c.suit==='S'?'♠':c.suit==='H'?'♥':c.suit==='D'?'♦':'♣'}}</text>
+          </view>
+        </view>
+        <text wx:if="{{p.isWinner}}" class="hr-win">🏆</text>
+      </view>
+    </view>
+
+    <!-- 确认状态 -->
+    <view class="confirm-section">
+      <text class="confirm-title">确认继续 ({{zjh_confirmedCount}}/{{zjh_totalToConfirm}})</text>
+      <view class="confirm-list">
+        <view class="confirm-item" wx:for="{{zjh_allPlayersHand}}" wx:key="openId" wx:for-item="p">
+          <text class="confirm-name">{{p.name}}</text>
+          <text class="confirm-ok" wx:if="{{p.confirmedNext}}">✅ 已确认</text>
+          <text class="confirm-wait" wx:else>⏳ 等待中</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 按钮 -->
+    <button class="btn-confirm {{myPlayer.confirmedNext?'done':''}}" bindtap="onConfirmNext" wx:if="{{myPlayer && !isFinalHand}}" disabled="{{pendingConfirm}}">
+      {{myPlayer.confirmedNext?'✅ 已确认 · 再按取消':'我已查看 · 继续'}}
+    </button>
+    <text wx:if="{{myPlayer && !myPlayer.confirmedNext && !isFinalHand}}" class="confirm-hint">按下确认后按钮置灰，再按可取消</text>
+
+    <button class="btn-rebuy" bindtap="onShowRebuy" wx:if="{{myPlayer && canRebuy && zjh_isGameEnded}}">💰 补充筹码（{{myPlayer.rebuyCount||0}}/3）</button>
+
+    <!-- 聊天按钮 -->
+    <button class="btn-chat end-btn-chat" bindtap="onToggleChat" wx:if="{{myPlayer}}">
+      <text>💬 聊天</text>
+      <view class="chat-unread-badge" wx:if="{{chatUnread > 0}}">{{chatUnread}}</view>
+    </button>
+
+    <button class="btn-next" bindtap="onNextHand" wx:if="{{isCreator && (isFinalHand || activePlayerCount<=1)}}">
+      🏆 {{isFinalHand ? '比赛结束 · 查看结果' : '最终胜利 · 重置游戏'}}
+    </button>
+
+    <!-- 内联自动开始下一局倒计时 -->
+    <view class="inline-countdown" wx:if="{{startCountdown > 0}}">
+      <text class="inline-countdown-icon">⏱</text>
+      <text class="inline-countdown-label">{{startCountdown}}秒后自动开始下一局</text>
+      <button class="countdown-cancel-btn" wx:if="{{isCreator}}" bindtap="onCancelCountdown">取消</button>
+    </view>
+  </view>
+
+  <!-- ============================ -->
+  <!-- 弹窗: 加注 -->
+  <!-- ============================ -->
+  <view class="modal" wx:if="{{zjh_showRaiseInput}}">
+    <view class="modal-box raise-modal">
+      <text class="m-title">加注</text>
+      <view class="raise-info">
+        <text class="raise-info-item">我的筹码: {{myPlayer.chips}}</text>
+        <text class="raise-info-item">暗/明: {{zjh_isDark?'暗牌(1x)':'明牌(2x)'}}</text>
+        <text class="raise-info-item">最小加注: {{zjh_minRaiseActual}} (实际支付)</text>
+        <text class="raise-info-item">最大加注: {{zjh_maxRaise}}</text>
+      </view>
+      <view class="quick-opts">
+        <view class="q-btn" wx:for="{{zjh_quickRaiseOptions}}" wx:key="label" data-value="{{item.value}}" bindtap="onZjhQuickRaise">{{item.label}} {{item.value}}</view>
+      </view>
+      <input class="m-input raise-input" type="digit" value="{{zjh_raiseAmount}}" bindinput="onZjhRaiseAmountInput" placeholder="输入实际加注金额" placeholder-style="color:#8a9a8e;font-size:32rpx" focus />
+      <text class="raise-hint" wx:if="{{zjh_raiseAmount > 0}}">实际支付: {{zjh_raiseAmount}} (名义下注: {{zjh_isDark?zjh_raiseAmount:zjh_raiseAmount/2}})</text>
+      <view class="m-btns">
+        <button class="m-cancel" bindtap="onZjhCancelRaise">取消</button>
+        <button class="m-ok" bindtap="onZjhConfirmRaise">确认</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 弹窗: 比牌选择 -->
+  <view class="modal" wx:if="{{zjh_showCompareSelect}}">
+    <view class="modal-box compare-modal">
+      <text class="m-title">选择比牌目标</text>
+      <text class="m-sub">比牌需要支付: {{zjh_isDark?zjh_currentBet:zjh_currentBet*2}} ({{zjh_isDark?'暗牌1x':'明牌2x'}})</text>
+      <view class="compare-list">
+        <view class="compare-item {{zjh_selectedCompareTarget===item.openId?'selected':''}}" wx:for="{{zjh_compareTargets}}" wx:key="openId" data-openid="{{item.openId}}" bindtap="onZjhSelectCompareTarget">
+          <text class="compare-name">{{item.name}}</text>
+          <text class="compare-check" wx:if="{{zjh_selectedCompareTarget===item.openId}}">✅</text>
+        </view>
+      </view>
+      <view class="m-btns">
+        <button class="m-cancel" bindtap="onZjhCancelCompare">取消</button>
+        <button class="m-ok" bindtap="onZjhConfirmCompare">确认比牌</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 弹窗: 聊天 -->
+  <view class="chat-panel {{showChat?'show':''}}" wx:if="{{room && !autoStarting}}" catchtap="stopBubble">
+    <view class="chat-header">
+      <text class="chat-title">💬 聊天</text>
+      <text class="chat-close" bindtap="onToggleChat">✕</text>
+    </view>
+    <view class="quick-msgs">
+      <view class="quick-msg" wx:for="{{quickMessages}}" wx:key="text" bindtap="onSendQuickMsg" data-msg="{{item}}">
+        <text>{{item.emoji}} {{item.text}}</text>
+      </view>
+    </view>
+    <view class="chat-input-row">
+      <input class="chat-input" placeholder="说点什么..." value="{{chatInput}}" bindinput="onChatInput" bindconfirm="onSendChat"/>
+      <button class="chat-send" bindtap="onSendChat">发送</button>
+    </view>
+  </view>
+
+  <!-- 弹窗: 分享 -->
+  <view class="modal" wx:if="{{showShareModal}}" bindtap="onHideShareModal">
+    <view class="modal-box share-modal" catchtap="stopBubble">
+      <text class="m-title">邀请好友</text>
+      <text class="m-sub share-modal-sub">将房间号发给好友，即可加入本房间</text>
+      <view class="share-code-wrap">
+        <text class="m-code">{{room.roomNumber}}</text>
+      </view>
+      <button class="m-btn share-copy-btn" bindtap="onCopyRoomNumber">复制房间号</button>
+      <button class="m-close" bindtap="onHideShareModal">关闭</button>
+    </view>
+  </view>
+
+  <!-- 弹窗: 重买 -->
+  <view class="modal" wx:if="{{showRebuyModal}}">
+    <view class="modal-box">
+      <text class="m-title">补充筹码</text>
+      <text class="m-sub">支付 {{rebuyAmount}} 筹码补充至初始值（本局已重买 {{myPlayer.rebuyCount || 0}}/3 次）</text>
+      <view class="m-btns">
+        <button class="m-cancel" bindtap="onHideRebuyModal">取消</button>
+        <button class="m-ok" bindtap="onConfirmRebuy">确认</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 比牌动画遮罩（德州扑克摊牌风格） -->
+  <view class="zjh-compare-anim-overlay" wx:if="{{zjh_showCompareAnim && zjh_compareAnimData}}">
+    <view class="zjh-compare-anim-box">
+      <text class="zjh-compare-anim-title">🃏 比牌</text>
+
+      <view class="zjh-compare-showdown">
+        <view class="zjh-compare-player">
+          <text class="zjh-compare-player-name">{{zjh_compareAnimData.oppName}}</text>
+          <view class="zjh-compare-cards">
+            <view class="zjh-compare-card-mini {{zjh_compareAnimData.oppCards[0].suit==='H'||zjh_compareAnimData.oppCards[0].suit==='D'?'red':'black'}} {{zjh_compareAnimPhase>=1?'flipped':''}}">
+              <text class="zjh-cf-v" wx:if="{{zjh_compareAnimPhase>=1}}">{{zjh_compareAnimData.oppCards[0].value}}</text>
+              <text class="zjh-cf-s" wx:if="{{zjh_compareAnimPhase>=1}}">{{zjh_compareAnimData.oppCards[0].suit==='S'?'♠':zjh_compareAnimData.oppCards[0].suit==='H'?'♥':zjh_compareAnimData.oppCards[0].suit==='D'?'♦':'♣'}}</text>
+              <text class="zjh-cf-back" wx:else>🂠</text>
+            </view>
+            <view class="zjh-compare-card-mini {{zjh_compareAnimData.oppCards[1].suit==='H'||zjh_compareAnimData.oppCards[1].suit==='D'?'red':'black'}} {{zjh_compareAnimPhase>=2?'flipped':''}}">
+              <text class="zjh-cf-v" wx:if="{{zjh_compareAnimPhase>=2}}">{{zjh_compareAnimData.oppCards[1].value}}</text>
+              <text class="zjh-cf-s" wx:if="{{zjh_compareAnimPhase>=2}}">{{zjh_compareAnimData.oppCards[1].suit==='S'?'♠':zjh_compareAnimData.oppCards[1].suit==='H'?'♥':zjh_compareAnimData.oppCards[1].suit==='D'?'♦':'♣'}}</text>
+              <text class="zjh-cf-back" wx:else>🂠</text>
+            </view>
+            <view class="zjh-compare-card-mini {{zjh_compareAnimData.oppCards[2].suit==='H'||zjh_compareAnimData.oppCards[2].suit==='D'?'red':'black'}} {{zjh_compareAnimPhase>=3?'flipped':''}}">
+              <text class="zjh-cf-v" wx:if="{{zjh_compareAnimPhase>=3}}">{{zjh_compareAnimData.oppCards[2].value}}</text>
+              <text class="zjh-cf-s" wx:if="{{zjh_compareAnimPhase>=3}}">{{zjh_compareAnimData.oppCards[2].suit==='S'?'♠':zjh_compareAnimData.oppCards[2].suit==='H'?'♥':zjh_compareAnimData.oppCards[2].suit==='D'?'♦':'♣'}}</text>
+              <text class="zjh-cf-back" wx:else>🂠</text>
+            </view>
+          </view>
+          <text class="zjh-compare-hand" wx:if="{{zjh_compareAnimPhase>=3}}">{{zjh_compareAnimData.oppHand}}</text>
+        </view>
+
+        <view class="zjh-compare-vs" wx:if="{{zjh_compareAnimPhase>=3}}">
+          <text class="zjh-compare-vs-text">VS</text>
+        </view>
+
+        <view class="zjh-compare-player" wx:if="{{zjh_compareAnimPhase>=3}}">
+          <text class="zjh-compare-player-name">{{zjh_compareAnimData.myName}}</text>
+          <view class="zjh-compare-cards">
+            <view class="zjh-compare-card-mini {{zjh_compareAnimData.myCards[0].suit==='H'||zjh_compareAnimData.myCards[0].suit==='D'?'red':'black'}} {{zjh_compareAnimPhase>=4?'flipped':''}}">
+              <text class="zjh-cf-v" wx:if="{{zjh_compareAnimPhase>=4}}">{{zjh_compareAnimData.myCards[0].value}}</text>
+              <text class="zjh-cf-s" wx:if="{{zjh_compareAnimPhase>=4}}">{{zjh_compareAnimData.myCards[0].suit==='S'?'♠':zjh_compareAnimData.myCards[0].suit==='H'?'♥':zjh_compareAnimData.myCards[0].suit==='D'?'♦':'♣'}}</text>
+              <text class="zjh-cf-back" wx:else>🂠</text>
+            </view>
+            <view class="zjh-compare-card-mini {{zjh_compareAnimData.myCards[1].suit==='H'||zjh_compareAnimData.myCards[1].suit==='D'?'red':'black'}} {{zjh_compareAnimPhase>=5?'flipped':''}}">
+              <text class="zjh-cf-v" wx:if="{{zjh_compareAnimPhase>=5}}">{{zjh_compareAnimData.myCards[1].value}}</text>
+              <text class="zjh-cf-s" wx:if="{{zjh_compareAnimPhase>=5}}">{{zjh_compareAnimData.myCards[1].suit==='S'?'♠':zjh_compareAnimData.myCards[1].suit==='H'?'♥':zjh_compareAnimData.myCards[1].suit==='D'?'♦':'♣'}}</text>
+              <text class="zjh-cf-back" wx:else>🂠</text>
+            </view>
+            <view class="zjh-compare-card-mini {{zjh_compareAnimData.myCards[2].suit==='H'||zjh_compareAnimData.myCards[2].suit==='D'?'red':'black'}} {{zjh_compareAnimPhase>=6?'flipped':''}}">
+              <text class="zjh-cf-v" wx:if="{{zjh_compareAnimPhase>=6}}">{{zjh_compareAnimData.myCards[2].value}}</text>
+              <text class="zjh-cf-s" wx:if="{{zjh_compareAnimPhase>=6}}">{{zjh_compareAnimData.myCards[2].suit==='S'?'♠':zjh_compareAnimData.myCards[2].suit==='H'?'♥':zjh_compareAnimData.myCards[2].suit==='D'?'♦':'♣'}}</text>
+              <text class="zjh-cf-back" wx:else>🂠</text>
+            </view>
+          </view>
+          <text class="zjh-compare-hand" wx:if="{{zjh_compareAnimPhase>=6}}">{{zjh_compareAnimData.myHand}}</text>
+        </view>
+      </view>
+
+      <view class="zjh-compare-result" wx:if="{{zjh_compareAnimPhase>=7}}">
+        <text class="zjh-compare-result-icon">{{zjh_compareAnimResult==='win'?'🏆':zjh_compareAnimResult==='lose'?'💔':'🤝'}}</text>
+        <text class="zjh-compare-result-text {{zjh_compareAnimResult}}">{{zjh_compareAnimResult==='win'?'你赢了！':zjh_compareAnimResult==='lose'?'你输了':'平局'}}</text>
+      </view>
+
+      <view class="zjh-compare-confirm-wrap" wx:if="{{zjh_compareAnimPhase>=7 && !zjh_compareAnimClosing}}">
+        <view class="zjh-compare-confirm-status">
+          <text class="status-item {{zjh_compareAnimMyConfirm ? 'confirmed' : ''}}">
+            {{zjh_compareAnimMyConfirm ? '✓ 已确认' : '○ 未确认'}}
+          </text>
+          <text class="status-item {{zjh_compareAnimOppConfirm ? 'confirmed' : ''}}">
+            {{zjh_compareAnimOppConfirm ? '✓ 对方已确认' : '○ 对方未确认'}}
+          </text>
+        </view>
+        <button class="zjh-compare-confirm-btn" bindtap="onZjhCompareConfirm" disabled="{{zjh_compareAnimMyConfirm}}">
+          {{zjh_compareAnimMyConfirm ? '已确认' : '确认'}}
+        </button>
+      </view>
+      <view class="zjh-compare-confirm-wrap" wx:if="{{zjh_compareAnimClosing}}">
+        <text class="zjh-compare-close-countdown">{{zjh_compareCloseCountdown}}秒后关闭比牌界面</text>
+      </view>
+    </view>
+  </view>
+</view>

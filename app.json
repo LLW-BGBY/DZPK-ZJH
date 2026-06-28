@@ -1,0 +1,41 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/game-poker/game-poker",
+    "pages/game-zjh/game-zjh",
+    "pages/room/room",
+    "pages/history/history",
+    "pages/rules/rules"
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#1a5c3a",
+    "navigationBarTitleText": "纸牌桌",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#0f3d26"
+  },
+  "tabBar": {
+    "color": "#8a9a8e",
+    "selectedColor": "#f0d878",
+    "backgroundColor": "#1a5c3a",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/room/room",
+        "text": "房间"
+      },
+      {
+        "pagePath": "pages/history/history",
+        "text": "战绩"
+      }
+    ]
+  },
+  "cloud": true,
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

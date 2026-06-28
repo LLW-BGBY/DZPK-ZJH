@@ -1,0 +1,8 @@
+{
+  "usingComponents": {},
+  "navigationBarTitleText": "炸金花",
+  "navigationBarBackgroundColor": "#1a3a2a",
+  "navigationBarTextStyle": "white",
+  "backgroundColor": "#0f3d26",
+  "disableScroll": true
+}

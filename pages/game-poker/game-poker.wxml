@@ -1,0 +1,212 @@
+<view class="poker-root">
+  <!-- 加载状态 -->
+  <view class="poker-loading" wx:if="{{isLoading}}">
+    <view class="poker-loading-spinner"></view>
+    <text class="poker-loading-text">正在进入牌桌...</text>
+  </view>
+
+  <!-- 等待界面 -->
+  <view class="poker-waiting" wx:if="{{room && room.status === 'waiting' && !(autoStarting && startCountdown === 0)}}">
+    <view class="poker-wait-card">
+      <view class="poker-wait-head">
+        <view class="poker-wait-title-wrap">
+          <text class="poker-wait-room-name">{{room.roomName}}</text>
+          <text class="poker-wait-lock" wx:if="{{room.hasPassword}}">🔒</text>
+        </view>
+        <view class="poker-wait-num-wrap" bindtap="onCopyRoomNumber">
+          <text class="poker-wait-room-num">{{room.roomNumber}}</text>
+          <text class="poker-wait-copy-btn">复制</text>
+        </view>
+      </view>
+      <view class="poker-wait-meta">
+        <text class="poker-wait-meta-tag">德州扑克</text>
+        <text class="poker-wait-meta-dot">·</text>
+        <text>盲注 {{room.smallBlind || room.sb || 1}}/{{room.bigBlind || room.bb || 2}}</text>
+        <text class="poker-wait-meta-dot">·</text>
+        <text>{{players.length}}/{{room.maxPlayers}}人</text>
+        <text class="poker-wait-meta-dot">·</text>
+        <text>{{activePlayerCount}}人可战</text>
+      </view>
+      <view class="poker-wait-actions">
+        <view class="poker-wait-btn poker-wait-btn-invite" bindtap="onShareRoom">
+          <text class="poker-wait-btn-icon">📤</text>
+          <text class="poker-wait-btn-label">邀请好友</text>
+        </view>
+        <view class="poker-wait-btn poker-wait-btn-leave" bindtap="onLeaveRoom">
+          <text class="poker-wait-btn-icon">🚪</text>
+          <text class="poker-wait-btn-label">离开房间</text>
+        </view>
+      </view>
+    </view>
+    <view class="poker-wait-bottom">
+      <view class="poker-wait-main-btn-wrap">
+        <view class="poker-wait-ready-btn {{myPlayer.isReady?'done':''}}" bindtap="onReadyToggle" wx:if="{{myPlayer}}">
+          <text>{{myPlayer.isReady?'✓ 已就绪':'准备开局'}}</text>
+        </view>
+        <view class="poker-wait-start-btn" bindtap="onStartGame" wx:if="{{isCreator && allPlayersReady && startCountdown <= 0}}">
+          <text>开始游戏</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 游戏主界面 - 参考图2设计 -->
+  <view class="poker-game" wx:if="{{room && room.status === 'playing'}}">
+
+    <!-- 横向玩家状态条 -->
+    <scroll-view class="poker-pos-bar" scroll-x scroll-into-view="pos-{{room.currentPlayerIndex}}" scroll-with-animation wx:if="{{players && players.length > 0}}">
+      <block wx:for="{{players}}" wx:key="openId" wx:for-index="idx" wx:for-item="p">
+        <view class="poker-pos-item {{room.currentPlayerIndex===idx?'active':''}} {{!p.isActive && !p.isAllIn?'folded':''}}" id="pos-{{idx}}">
+          <text class="poker-pos-name">{{p.name}}</text>
+          <text class="poker-pos-status" wx:if="{{idx !== room.dealerIndex}}">{{!p.isActive && !p.isAllIn?'弃牌':'待行动'}}</text>
+          <text class="poker-pos-chips">{{p.chips}}</text>
+        </view>
+      </block>
+    </scroll-view>
+
+    <!-- 桌面环形区域 -->
+    <view class="poker-table-wrap">
+
+      <!-- 桌面主体 - 环形椭圆形 -->
+      <view class="poker-table-oval">
+
+        <!-- 底池 -->
+        <view class="poker-pot-center">
+          <text class="poker-pot-icon">💰</text>
+          <text class="poker-pot-num">{{pot}}</text>
+        </view>
+
+        <!-- 中央水印文字 -->
+        <view class="poker-table-watermark">
+          <text class="poker-watermark-desc">常规桌·{{room.smallBlind || 1}}/{{room.bigBlind || 2}}</text>
+          <view class="poker-watermark-brand">
+            <text class="poker-brand-icon">☰</text>
+            <text class="poker-brand-text">简单GTO</text>
+          </view>
+        </view>
+
+        <!-- 公共牌 -->
+        <view class="poker-community-wrap">
+          <view class="poker-community-card" wx:for="{{communityCards}}" wx:key="index" wx:for-item="c">
+            <text class="poker-cc-value">{{c.value}}</text>
+            <text class="poker-cc-suit">{{c.suit==='S'?'♠':c.suit==='H'?'♥':c.suit==='D'?'♦':'♣'}}</text>
+          </view>
+        </view>
+
+        <!-- 实时聊天 -->
+        <scroll-view class="poker-table-chat" scroll-y>
+          <view class="poker-table-chat-item {{item.type}}" wx:for="{{gameHistory}}" wx:key="id" wx:for-item="it">
+            <text>{{it.text}}</text>
+          </view>
+          <view class="poker-table-chat-empty" wx:if="{{gameHistory.length === 0}}">
+            <text>暂无记录</text>
+          </view>
+        </scroll-view>
+
+        <!-- 玩家位置 - 环形动态排列 -->
+        <view class="poker-ring-seat" style="top: {{ringPositions[idx].top}}; left: {{ringPositions[idx].left}}" wx:for="{{ringPlayers}}" wx:key="openId" wx:for-index="idx" wx:for-item="p">
+          <view class="poker-ring-card {{room.currentPlayerIndex===ringPlayerIndices[idx]?'ring-active':''}} {{p.isFolded?'ring-fold':''}} {{p.isAllIn?'ring-allin':''}} {{p.chips===0 && !p.isActive?'ring-bust':''}}">
+            <view class="poker-ring-dealer" wx:if="{{room.dealerIndex === ringPlayerIndices[idx]}}">D</view>
+            <view class="poker-ring-avatar">
+              <image src="{{p.avatarUrl}}" mode="aspectFill" wx:if="{{p.avatarUrl}}" binderror="onAvatarError"></image>
+              <text wx:else>{{p.chips<=0?'💀':p.isAllIn?'🔥':p.isActive?'👤':'🏳️'}}</text>
+            </view>
+            <text class="poker-ring-name">{{p.name}}</text>
+            <text class="poker-ring-chips">{{p.chips}}</text>
+            <view class="poker-ring-rebuy" wx:if="{{p.rebuyCount > 0}}">
+              <text>💩</text>
+              <text wx:if="{{p.rebuyCount > 1}}">💩</text>
+              <text wx:if="{{p.rebuyCount > 2}}">💩</text>
+            </view>
+            <text class="poker-ring-badge" wx:if="{{p.isFolded}}">弃牌</text>
+            <text class="poker-ring-badge badge-allin" wx:elif="{{p.isAllIn}}">ALL IN</text>
+            <text class="poker-ring-badge badge-bust" wx:elif="{{p.chips===0 && !p.isActive}}">破产</text>
+          </view>
+        </view>
+
+      </view>
+
+      <!-- 我方手牌模块 - 底部中央 -->
+      <view class="poker-my-hand-wrap" wx:if="{{myPlayer.holeCards && myPlayer.holeCards.length > 0}}">
+
+        <!-- 高牌标签 -->
+        <view class="poker-handtag">
+          <text>高牌</text>
+        </view>
+
+        <!-- 手牌两张 + 信息 -->
+        <view class="poker-myhand-row">
+          <view class="poker-myhand-cards">
+            <view class="poker-hand-card hand-card-1">
+              <text class="poker-hand-card-value">{{myPlayer.holeCards[0].value}}</text>
+              <text class="poker-hand-card-suit">{{myPlayer.holeCards[0].suit==='S'?'♠':myPlayer.holeCards[0].suit==='H'?'♥':myPlayer.holeCards[0].suit==='D'?'♦':'♣'}}</text>
+            </view>
+            <view class="poker-hand-card hand-card-2">
+              <text class="poker-hand-card-value">{{myPlayer.holeCards[1].value}}</text>
+              <text class="poker-hand-card-suit">{{myPlayer.holeCards[1].suit==='S'?'♠':myPlayer.holeCards[1].suit==='H'?'♥':myPlayer.holeCards[1].suit==='D'?'♦':'♣'}}</text>
+            </view>
+          </view>
+          <view class="poker-chat-btn" bindtap="onToggleChat" wx:if="{{room && room.status === 'playing'}}">
+            <text>💬</text>
+          </view>
+        </view>
+
+      </view>
+
+    </view>
+
+    <!-- 操作区域 -->
+    <view class="poker-action-wrap">
+
+      <!-- 快捷倍率 + 滑块 -->
+      <view class="poker-slider-row">
+        <view class="poker-ratio-btn {{raiseMultiplier===3?'active':''}}" bindtap="onQuickRaise" data-value="3">
+          <text>3X</text>
+        </view>
+        <view class="poker-ratio-btn {{raiseMultiplier===5?'active':''}}" bindtap="onQuickRaise" data-value="5">
+          <text>5X</text>
+        </view>
+        <view class="poker-ratio-btn {{raiseMultiplier===6?'active':''}}" bindtap="onQuickRaise" data-value="6">
+          <text>6X</text>
+        </view>
+        <view class="poker-ratio-btn {{raiseMultiplier===8?'active':''}}" bindtap="onQuickRaise" data-value="8">
+          <text>8X</text>
+        </view>
+        <slider class="poker-slider" min="{{minRaise || 2}}" max="{{maxRaise || 100}}" step="1" value="{{raiseAmount || 6}}" bindchange="onSliderChange" bindchanging="onSliderChanging" activeColor="#2a6a4a" backgroundColor="#2a2e38" block-size="24" block-color="#ffffff" />
+      </view>
+
+      <!-- 三色操作按钮 -->
+      <view class="poker-action-row">
+        <view class="poker-action-btn action-fold" bindtap="onFold">
+          <text>弃牌</text>
+        </view>
+        <view class="poker-action-btn action-call" bindtap="onCall">
+          <text wx:if="{{toCall > 0}}">跟注 {{toCall}}</text>
+          <text wx:else>过牌</text>
+        </view>
+        <view class="poker-action-btn action-raise" bindtap="onConfirmRaise">
+          <text>加注 {{raiseAmount || 6}}</text>
+        </view>
+      </view>
+
+    </view>
+  </view>
+
+  <!-- 聊天面板 -->
+  <view class="chat-panel {{showChat?'show':''}}" wx:if="{{room && !autoStarting}}" catchtap="stopBubble">
+    <view class="chat-header">
+      <text class="chat-title">💬 聊天</text>
+      <text class="chat-close" bindtap="onToggleChat">✕</text>
+    </view>
+    <view class="quick-msgs">
+      <view class="quick-msg" wx:for="{{quickMessages}}" wx:key="text" bindtap="onSendQuickMsg" data-msg="{{item}}">
+        <text>{{item.emoji}} {{item.text}}</text>
+      </view>
+    </view>
+    <view class="chat-input-row">
+      <input class="chat-input" placeholder="说点什么..." value="{{chatInput}}" bindinput="onChatInput" bindconfirm="onSendChat"/>
+      <button class="chat-send" bindtap="onSendChat">发送</button>
+    </view>
+  </view>
+
+</view>

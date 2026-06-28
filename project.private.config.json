@@ -1,0 +1,41 @@
+{
+  "libVersion": "3.16.1",
+  "projectname": "2.0.0",
+  "condition": {
+    "miniprogram": {
+      "list": [
+        {
+          "name": "德州扑克游戏界面",
+          "pathName": "pages/game-poker/game-poker",
+          "query": "debug",
+          "scene": null,
+          "launchMode": "default"
+        },
+        {
+          "name": "炸金花调试",
+          "pathName": "pages/game-zjh/game-zjh",
+          "query": "",
+          "launchMode": "default",
+          "scene": null
+        }
+      ]
+    }
+  },
+  "setting": {
+    "urlCheck": true,
+    "coverView": true,
+    "lazyloadPlaceholderEnable": false,
+    "skylineRenderEnable": false,
+    "preloadBackgroundData": false,
+    "autoAudits": false,
+    "useApiHook": true,
+    "showShadowRootInWxmlPanel": false,
+    "useStaticServer": false,
+    "useLanDebug": false,
+    "showES6CompileOption": false,
+    "compileHotReLoad": true,
+    "checkInvalidKey": true,
+    "ignoreDevUnusedFiles": true,
+    "bigPackageSizeSupport": false
+  }
+}

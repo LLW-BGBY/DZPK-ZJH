@@ -1,0 +1,69 @@
+<!--pages/history/history.wxml - 战绩页面-->
+
+<view class="container">
+  <!-- 总览卡片 -->
+  <view class="stats-card">
+    <view class="stats-header">
+      <text class="stats-title">📊 我的战绩</text>
+      <text class="stats-level">Lv.{{profile.level || 1}}</text>
+    </view>
+    <view class="stats-grid">
+      <view class="stat-item">
+        <text class="stat-value">{{profile.totalGames || 0}}</text>
+        <text class="stat-label">总场次</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-value text-gold">{{profile.totalWins || 0}}</text>
+        <text class="stat-label">胜场</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-value">{{profile.winRate}}%</text>
+        <text class="stat-label">胜率</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-value text-gold">{{profile.totalProfit || 0}}</text>
+        <text class="stat-label">总盈利</text>
+      </view>
+    </view>
+    <view class="best-hand" wx:if="{{profile.bestHand}}">
+      <text>最佳牌型: </text>
+      <text class="text-gold">{{profile.bestHand}}</text>
+    </view>
+    <view class="game-type-stats">
+      <text class="game-type-item">♠️ 炸金花 {{profile.zjhGames || 0}}场</text>
+      <text class="game-type-item">🃏 德州扑克 {{profile.pokerGames || 0}}场</text>
+    </view>
+  </view>
+
+  <!-- 每日记录 -->
+  <view class="filter-bar">
+    <text class="filter-title">📅 每日记录</text>
+  </view>
+
+  <view class="daily-list">
+    <view class="daily-item" wx:for="{{dailyStats}}" wx:key="date">
+      <view class="daily-header">
+        <text class="daily-date">{{item.displayDate}}</text>
+        <text class="daily-profit {{item.totalProfit >= 0 ? 'text-green' : 'text-red'}}">
+          {{item.totalProfit >= 0 ? '+' : ''}}{{item.totalProfit}}
+        </text>
+      </view>
+      <view class="daily-detail">
+        <text class="detail-item">🎮 {{item.gamesPlayed}}场</text>
+        <text class="detail-item">🏆 {{item.gamesWon}}胜</text>
+        <text class="detail-item">🃏 {{item.handsPlayed}}手</text>
+        <text class="detail-item">💰 {{item.totalBet}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:if="{{dailyStats.length === 0 && !isLoading}}">
+    <text class="empty-icon">🃏</text>
+    <text class="empty-text">还没有战绩记录</text>
+    <text class="empty-hint">去创建或加入一局游戏吧</text>
+  </view>
+
+  <view class="loading" wx:if="{{isLoading}}">
+    <text class="loading-text">加载中...</text>
+  </view>
+</view>
