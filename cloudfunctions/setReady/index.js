@@ -36,6 +36,20 @@ exports.main = async (event, context) => {
       }
     });
 
+    // 检查是否全员准备 -> 写入倒计时时间戳，确保所有玩家都能同步看到倒计时
+    if (isReady) {
+      const activePlayers = room.players.filter(p => p.chips > 0);
+      const allReady = activePlayers.length >= 2 && activePlayers.every(p => {
+        if (p.openId === OPENID) return true;
+        return p.isReady;
+      });
+      if (allReady && !room.startCountdownAt) {
+        await db.collection('rooms').doc(roomId).update({
+          data: { startCountdownAt: Date.now() }
+        });
+      }
+    }
+
     return { success: true };
   } catch (e) {
     console.error('setReady error:', e);

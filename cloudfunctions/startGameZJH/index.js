@@ -132,6 +132,7 @@ exports.main = async (event, context) => {
       const zjh_ante = Math.min(zjh_baseBet, p.chips);
       p.chips -= zjh_ante;
       p.totalBetThisRound = 0;
+      p.totalBet = zjh_ante; // 底注计入总下注，结算时需考虑
       zjh_totalPot += zjh_ante;
       zjh_anteMessages.push(`${p.name} 支付底注 ${zjh_ante}`);
     }

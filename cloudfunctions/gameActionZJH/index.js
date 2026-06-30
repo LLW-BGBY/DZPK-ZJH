@@ -223,11 +223,36 @@ exports.main = async (event, context) => {
       }
 
       const zjh_status = 'ended';
+      // 将旁观者自动转为玩家（用于下一局）
+      const zjh_spectators = zjh_room.spectators || [];
+      let zjh_promoted = [];
+      if (zjh_spectators.length > 0) {
+        const zjh_joinTime = Date.now();
+        zjh_promoted = zjh_spectators.map((s, i) => ({
+          openId: s.openId,
+          name: s.name,
+          avatarUrl: s.avatarUrl || '',
+          isReady: false,
+          isActive: true,
+          isAllIn: false,
+          hasActed: false,
+          totalBetThisRound: 0,
+          totalBet: 0,
+          chips: zjh_room.defaultChips || 10000,
+          holeCards: [],
+          handResult: null,
+          rebuyCount: 0,
+          seat: zjh_players.length + i,
+          joinedAt: zjh_joinTime
+        }));
+        zjh_players.push(...zjh_promoted);
+      }
       const zjh_endData = {
         status: zjh_status, phase: zjh_phase, pot: zjh_pot, currentBet: zjh_currentBet,
         minRaise: zjh_minRaise, zjh_roundCount: zjh_roundCount,
         currentPlayerIndex: zjh_currentPlayerIndex, zjh_lastRaiser: zjh_lastRaiser,
-        players: JSON.parse(JSON.stringify(zjh_players)), gameHistory: zjh_history, updatedAt: zjh_now
+        players: JSON.parse(JSON.stringify(zjh_players)), gameHistory: zjh_history, updatedAt: zjh_now,
+        spectators: zjh_promoted.length > 0 ? [] : zjh_spectators
       };
       if (zjh_result.compareDetail) {
         zjh_endData.zjh_lastCompare = JSON.parse(JSON.stringify(zjh_result.compareDetail));
@@ -271,11 +296,26 @@ exports.main = async (event, context) => {
 
       zjh_phase = 'SHOWDOWN';
       const zjh_status = 'ended';
+      // 将旁观者自动转为玩家
+      const zjh_spectators2 = zjh_room.spectators || [];
+      let zjh_promoted2 = [];
+      if (zjh_spectators2.length > 0) {
+        const zjh_jt = Date.now();
+        zjh_promoted2 = zjh_spectators2.map((s, i) => ({
+          openId: s.openId, name: s.name, avatarUrl: s.avatarUrl || '',
+          isReady: false, isActive: true, isAllIn: false, hasActed: false,
+          totalBetThisRound: 0, totalBet: 0, chips: zjh_room.defaultChips || 10000,
+          holeCards: [], handResult: null, rebuyCount: 0,
+          seat: zjh_players.length + i, joinedAt: zjh_jt
+        }));
+        zjh_players.push(...zjh_promoted2);
+      }
       const zjh_capData = {
         status: zjh_status, phase: zjh_phase, pot: zjh_pot, currentBet: zjh_currentBet,
         minRaise: zjh_minRaise, zjh_roundCount: zjh_roundCount,
         currentPlayerIndex: zjh_currentPlayerIndex, zjh_lastRaiser: zjh_lastRaiser,
-        players: JSON.parse(JSON.stringify(zjh_players)), gameHistory: zjh_history, updatedAt: zjh_now
+        players: JSON.parse(JSON.stringify(zjh_players)), gameHistory: zjh_history, updatedAt: zjh_now,
+        spectators: zjh_promoted2.length > 0 ? [] : zjh_spectators2
       };
       if (zjh_result.compareDetail) {
         zjh_capData.zjh_lastCompare = JSON.parse(JSON.stringify(zjh_result.compareDetail));
@@ -320,11 +360,26 @@ exports.main = async (event, context) => {
 
         zjh_phase = 'SHOWDOWN';
         const zjh_status = 'ended';
+        // 将旁观者自动转为玩家
+        const zjh_spectators3 = zjh_room.spectators || [];
+        let zjh_promoted3 = [];
+        if (zjh_spectators3.length > 0) {
+          const zjh_jt3 = Date.now();
+          zjh_promoted3 = zjh_spectators3.map((s, i) => ({
+            openId: s.openId, name: s.name, avatarUrl: s.avatarUrl || '',
+            isReady: false, isActive: true, isAllIn: false, hasActed: false,
+            totalBetThisRound: 0, totalBet: 0, chips: zjh_room.defaultChips || 10000,
+            holeCards: [], handResult: null, rebuyCount: 0,
+            seat: zjh_players.length + i, joinedAt: zjh_jt3
+          }));
+          zjh_players.push(...zjh_promoted3);
+        }
         const zjh_allInData = {
           status: zjh_status, phase: zjh_phase, pot: zjh_pot, currentBet: zjh_currentBet,
           minRaise: zjh_minRaise, zjh_roundCount: zjh_roundCount,
           currentPlayerIndex: zjh_currentPlayerIndex, zjh_lastRaiser: zjh_lastRaiser,
-          players: JSON.parse(JSON.stringify(zjh_players)), gameHistory: zjh_history, updatedAt: zjh_now
+          players: JSON.parse(JSON.stringify(zjh_players)), gameHistory: zjh_history, updatedAt: zjh_now,
+          spectators: zjh_promoted3.length > 0 ? [] : zjh_spectators3
         };
         if (zjh_result.compareDetail) {
           zjh_allInData.zjh_lastCompare = JSON.parse(JSON.stringify(zjh_result.compareDetail));

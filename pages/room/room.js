@@ -16,6 +16,8 @@ Page({
     bigBlind: 200,
     zjhBaseBet: 100,
     zjhMaxRounds: 20,
+    maxHands: 10,
+    allowMidJoin: false,
     enablePassword: false,
     roomPassword: '',
     joinRoomNumber: '',
@@ -277,6 +279,23 @@ Page({
     else this.setData({ zjhMaxRounds: v });
   },
 
+  onMaxHandsInput(e) {
+    const v = e.detail.value;
+    if (v === '') { this.setData({ maxHands: '' }); return; }
+    const n = parseInt(v);
+    if (!isNaN(n)) this.setData({ maxHands: n });
+  },
+  onMaxHandsBlur() {
+    const v = parseInt(this.data.maxHands);
+    if (isNaN(v) || v < 3) { this.setData({ maxHands: 3 }); wx.showToast({ title: '最少3回合', icon: 'none' }); }
+    else if (v > 50) { this.setData({ maxHands: 50 }); wx.showToast({ title: '最多50回合', icon: 'none' }); }
+    else this.setData({ maxHands: v });
+  },
+
+  onAllowMidJoinChange(e) {
+    this.setData({ allowMidJoin: e.detail.value });
+  },
+
   createRoom() {
     if (this.data.isLoading) return;
 
@@ -295,6 +314,8 @@ Page({
       roomName: this.data.roomName || (isZjh ? '炸金花' : '德州扑克'),
       maxPlayers: parseInt(this.data.maxPlayers) || 12,
       defaultChips: parseInt(this.data.defaultChips) || 10000,
+      maxHands: parseInt(this.data.maxHands) || 10,
+      allowMidJoin: this.data.allowMidJoin,
       password: this.data.enablePassword ? this.data.roomPassword.trim() : '',
       playerName: playerInfo.name,
       playerAvatar: playerInfo.avatarUrl
@@ -384,8 +405,9 @@ Page({
       this.setData({ isLoading: false, showJoinModal: false });
       const result = (res && res.result) || {};
       if (result.success) {
-        wx.showToast({ title: '加入成功', icon: 'success' });
-        this.enterRoom(result.roomId, result.gameType || 'texas');
+        const msg = result.isSpectator ? '已加入观战' : '加入成功';
+        wx.showToast({ title: msg, icon: 'success' });
+        this.enterRoom(result.roomId, result.gameType || 'texas', result.isSpectator);
       } else {
         wx.showToast({ title: result.error || '加入失败', icon: 'none' });
       }
@@ -395,10 +417,10 @@ Page({
     });
   },
 
-  enterRoom(roomId, gameType) {
+  enterRoom(roomId, gameType, isSpectator) {
     const url = gameType === 'zjh'
-      ? `/pages/game-zjh/game-zjh?roomId=${roomId}`
-      : `/pages/game-poker/game-poker?roomId=${roomId}`;
+      ? `/pages/game-zjh/game-zjh?roomId=${roomId}${isSpectator ? '&isSpectator=1' : ''}`
+      : `/pages/game-poker/game-poker?roomId=${roomId}${isSpectator ? '&isSpectator=1' : ''}`;
     wx.navigateTo({ url });
   },
 

@@ -1,19 +1,19 @@
 {
   "libVersion": "3.16.1",
-  "projectname": "2.0.0",
+  "projectname": "2.8.0",
   "condition": {
     "miniprogram": {
       "list": [
         {
-          "name": "德州扑克游戏界面",
-          "pathName": "pages/game-poker/game-poker",
-          "query": "debug",
+          "name": "炸金花游戏",
+          "pathName": "pages/game-zjh/game-zjh",
+          "query": "",
           "scene": null,
           "launchMode": "default"
         },
         {
-          "name": "炸金花调试",
-          "pathName": "pages/game-zjh/game-zjh",
+          "name": "德州扑克游戏",
+          "pathName": "pages/game-poker/game-poker",
           "query": "",
           "launchMode": "default",
           "scene": null

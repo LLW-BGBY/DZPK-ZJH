@@ -1,6 +1,7 @@
 const cloud = require('wx-server-sdk');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
+const _ = db.command;
 
 exports.main = async (event, context) => {
   const { roomId, isConfirmNext } = event;
@@ -27,6 +28,20 @@ exports.main = async (event, context) => {
         updatedAt
       }
     });
+
+    // 检查是否全员确认 -> 写入倒计时时间戳，确保所有玩家都能同步看到倒计时
+    if (isConfirmNext) {
+      const activePlayers = room.players.filter(p => p.chips > 0);
+      const allConfirmed = activePlayers.length >= 2 && activePlayers.every(p => {
+        if (p.openId === OPENID) return true;
+        return p.confirmedNext;
+      });
+      if (allConfirmed && !room.startCountdownAt) {
+        await db.collection('rooms').doc(roomId).update({
+          data: { startCountdownAt: Date.now() }
+        });
+      }
+    }
 
     return { success: true };
   } catch (e) {

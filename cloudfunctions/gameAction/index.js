@@ -90,19 +90,32 @@ function scoreHand(cards) {
 }
 
 /** 从7张牌中选最佳5张组合 */
-function evaluateBestHand(cards) {
+function evaluateBestHand(cards, communityCards) {
   if (!cards || cards.length < 2) return { rank: -1, score: 0, name: '未知', value: [] };
   if (cards.length < 5) {
     const s = scoreHand(cards);
-    return { ...s, value: cards.map(c => RANK_VALUES[c.value] || 0) };
+    return { ...s, value: cards.map(c => RANK_VALUES[c.value] || 0), isCommunityOnly: false };
   }
   const combos = combinations(cards, 5);
   let best = null;
+  let bestCombo = null;
   for (const combo of combos) {
     const result = scoreHand(combo);
-    if (!best || result.score > best.score) best = { ...result, value: combo.map(c => RANK_VALUES[c.value] || 0) };
+    if (!best || result.score > best.score) {
+      best = result;
+      bestCombo = combo;
+    }
   }
-  return best || { rank: 1, score: 0, name: '高牌', value: cards.slice(0, 5).map(c => RANK_VALUES[c.value] || 0) };
+  if (!best) return { rank: 1, score: 0, name: '高牌', value: cards.slice(0, 5).map(c => RANK_VALUES[c.value] || 0), isCommunityOnly: false };
+
+  // 判断公共牌是否已是最大组合（即玩家手牌对最终牌型无提升）
+  let isCommunityOnly = false;
+  if (communityCards && communityCards.length >= 5) {
+    const communityResult = scoreHand(communityCards);
+    isCommunityOnly = communityResult.score >= best.score;
+  }
+
+  return { ...best, value: bestCombo.map(c => RANK_VALUES[c.value] || 0), isCommunityOnly };
 }
 
 function compareHands(a, b) {
@@ -110,6 +123,37 @@ function compareHands(a, b) {
   for (let i = 0; i < Math.min(a.kickers.length, b.kickers.length); i++) {
     if (a.kickers[i] !== b.kickers[i]) return a.kickers[i] - b.kickers[i];
   }
+  return 0;
+}
+
+/**
+ * 比较两手手牌（2张）的大小，用于公共牌最大组合时破平局
+ * 返回正数表示 a > b，负数表示 a < b，0 表示平局
+ * 比较规则：先比是否成对，再比高牌点数，再比低牌点数
+ */
+function compareHoleCards(holeCardsA, holeCardsB) {
+  if (!holeCardsA || holeCardsA.length < 2) return -1;
+  if (!holeCardsB || holeCardsB.length < 2) return 1;
+
+  const vA = holeCardsA.map(c => RANK_VALUES[c.value] || 0).sort((a, b) => b - a);
+  const vB = holeCardsB.map(c => RANK_VALUES[c.value] || 0).sort((a, b) => b - a);
+
+  const isPairA = vA[0] === vA[1];
+  const isPairB = vB[0] === vB[1];
+
+  // 一方成对一方不成对，成对者胜
+  if (isPairA && !isPairB) return 1;
+  if (!isPairA && isPairB) return -1;
+
+  // 双方都成对，比对子大小
+  if (isPairA && isPairB) {
+    if (vA[0] !== vB[0]) return vA[0] - vB[0];
+    return 0;
+  }
+
+  // 双方都不成对，先比高牌，再比低牌
+  if (vA[0] !== vB[0]) return vA[0] - vB[0];
+  if (vA[1] !== vB[1]) return vA[1] - vB[1];
   return 0;
 }
 
@@ -166,7 +210,20 @@ function distributePot(players, communityCards, pot) {
           bestScore = p.handResult.score;
           winners = [p.openId];
         } else if (p.handResult.score === bestScore) {
-          winners.push(p.openId);
+          // 同分: 如果双方的最佳牌都是公共牌，则比手牌大小
+          const existingWinner = winners.length > 0 ? eligible.find(el => el.openId === winners[0]) : null;
+          if (existingWinner && existingWinner.handResult && existingWinner.handResult.isCommunityOnly &&
+              p.handResult.isCommunityOnly) {
+            const cmp = compareHoleCards(p.holeCards, existingWinner.holeCards);
+            if (cmp > 0) {
+              winners = [p.openId];
+            } else if (cmp === 0) {
+              winners.push(p.openId);
+            }
+            // cmp < 0: 保持现有赢家，不加入
+          } else {
+            winners.push(p.openId);
+          }
         }
       }
 
@@ -192,7 +249,7 @@ function distributePot(players, communityCards, pot) {
     }
   }
 
-  // 分配筹码
+  // 分配筹码 - 盈亏按本局实际下注计算
   const profits = {};
   for (const p of players) profits[p.openId] = -(p.totalBet || 0);
 
@@ -255,7 +312,8 @@ async function saveGameRecord(roomId, room, players, communityCards, history) {
         handResult: p.handResult ? {
           name: p.handResult.name,
           score: p.handResult.score,
-          rank: p.handResult.rank
+          rank: p.handResult.rank,
+          isCommunityOnly: p.handResult.isCommunityOnly
         } : null,
         holeCards: p.holeCards || []
       })),
@@ -288,7 +346,7 @@ function shouldAdvancePhase(players, currentBet) {
   const active = players.filter(p => p.isActive);
   if (active.length <= 1) return true;
   const allActed = active.every(p => p.hasActed || p.isAllIn);
-  const allMatched = active.every(p => p.isAllIn || p.totalBetThisRound === currentBet || p.chips === 0);
+  const allMatched = active.every(p => p.isAllIn || p.totalBetThisRound >= currentBet || p.chips === 0);
   return allActed && allMatched;
 }
 
@@ -336,7 +394,7 @@ exports.main = async (event, context) => {
     if (!currentPlayer.isActive) return { success: false, error: '你已弃牌' };
     if (currentPlayer.isAllIn) return { success: false, error: '你已全押' };
 
-    const toCall = room.currentBet - currentPlayer.totalBetThisRound;
+    const toCall = room.currentBet;
     const now = Date.now();
     let history = room.gameHistory || [];
     let players = [...room.players];
@@ -367,16 +425,16 @@ exports.main = async (event, context) => {
         break;
 
       case 'call':
-        const callAmt = Math.min(toCall, player.chips);
+        const callAmt = Math.min(currentBet, player.chips);
         player.chips -= callAmt;
         player.totalBetThisRound += callAmt;
         pot += callAmt;
         if (player.chips === 0) {
           player.isAllIn = true;
-          actionMsg = `${player.name} 全押跟注到 ${player.totalBetThisRound}`;
+          actionMsg = `${player.name} 全押跟注 ${callAmt}`;
           actionType = 'allin';
         } else {
-          actionMsg = `${player.name} 跟注到 ${player.totalBetThisRound}`;
+          actionMsg = `${player.name} 跟注 ${callAmt}`;
           actionType = 'call';
         }
         break;
@@ -397,10 +455,10 @@ exports.main = async (event, context) => {
         });
         if (player.chips === 0) {
           player.isAllIn = true;
-          actionMsg = `${player.name} 全押加注到 ${raiseAmt}`;
+          actionMsg = `${player.name} 全押加注 ${actualRaise}`;
           actionType = 'allin';
         } else {
-          actionMsg = `${player.name} 加注到 ${raiseAmt}`;
+          actionMsg = `${player.name} 加注 ${actualRaise}`;
           actionType = 'raise';
         }
         break;
@@ -439,7 +497,7 @@ exports.main = async (event, context) => {
         // 评估赢家牌型（用于前端展示）
         if (winner.holeCards && winner.holeCards.length > 0) {
           const allCards = [...winner.holeCards, ...communityCards];
-          winner.handResult = evaluateBestHand(allCards);
+          winner.handResult = evaluateBestHand(allCards, communityCards);
         }
         // 计算盈亏：赢家获利 = 底池 - 自身下注，其他玩家亏损 = 各自下注额
         const getTotalBet = (p) => (p.totalBet || 0) + (p.totalBetThisRound || 0);
@@ -466,10 +524,36 @@ exports.main = async (event, context) => {
         history.push({ message: `${winner.name} 获胜（其他玩家弃牌），牌型: ${winner.handResult ? winner.handResult.name : '?'}`, type: 'win', time: now });
       }
       const status = 'ended';
+      // 将旁观看自动转为玩家（用于下一局）
+      const spectators = room.spectators || [];
+      let promotedPlayers = [];
+      if (spectators.length > 0) {
+        const now = Date.now();
+        promotedPlayers = spectators.map((s, i) => ({
+          openId: s.openId,
+          name: s.name,
+          avatarUrl: s.avatarUrl || '',
+          isReady: false,
+          isActive: true,
+          isAllIn: false,
+          hasActed: false,
+          totalBetThisRound: 0,
+          totalBet: 0,
+          chips: room.defaultChips || vChips,
+          holeCards: [],
+          handResult: null,
+          rebuyCount: 0,
+          seat: players.length + i,
+          joinedAt: now
+        }));
+        players.push(...promotedPlayers);
+      }
       await db.collection('rooms').doc(roomId).update({
         data: {
           status, phase, phaseIndex, communityCards, pot, currentBet, minRaise,
-          currentPlayerIndex, deck: deck.slice(0, 40), players, gameHistory: history, updatedAt: now
+          currentPlayerIndex, deck: deck.slice(0, 40), players, gameHistory: history, updatedAt: now,
+          turnDeadline: now + 30000,
+          spectators: promotedPlayers.length > 0 ? [] : spectators
         }
       });
       await saveGameRecord(roomId, room, players, communityCards, history);
@@ -495,7 +579,7 @@ exports.main = async (event, context) => {
         const showdownPlayers = players.filter(p => p.isActive || p.isAllIn);
         for (const p of showdownPlayers) {
           const allCards = [...p.holeCards, ...communityCards];
-          p.handResult = evaluateBestHand(allCards);
+          p.handResult = evaluateBestHand(allCards, communityCards);
         }
 
         const result = distributePot(players, communityCards, pot);
@@ -561,7 +645,7 @@ exports.main = async (event, context) => {
           const showdownPlayers = players.filter(p => p.isActive || p.isAllIn);
           for (const p of showdownPlayers) {
             const allCards = [...p.holeCards, ...communityCards];
-            p.handResult = evaluateBestHand(allCards);
+            p.handResult = evaluateBestHand(allCards, communityCards);
           }
           const result = distributePot(players, communityCards, pot);
           const winnerNames = result.winnerNames;
@@ -603,7 +687,7 @@ exports.main = async (event, context) => {
         const showdownPlayers = players.filter(p => p.isActive || p.isAllIn);
         for (const p of showdownPlayers) {
           const allCards = [...p.holeCards, ...communityCards];
-          p.handResult = evaluateBestHand(allCards);
+          p.handResult = evaluateBestHand(allCards, communityCards);
         }
         const result = distributePot(players, communityCards, pot);
         const winnerNames = result.winnerNames;
@@ -638,6 +722,7 @@ exports.main = async (event, context) => {
       data: {
         status, phase, phaseIndex, communityCards, pot, currentBet, minRaise,
         currentPlayerIndex, deck: deck.slice(0, 40), players, gameHistory: history, updatedAt: now,
+        turnDeadline: now + 30000,
         isFinalHand
       }
     });

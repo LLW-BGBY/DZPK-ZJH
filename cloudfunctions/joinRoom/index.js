@@ -28,7 +28,37 @@ exports.main = async (event, context) => {
     const roomId = room._id;
 
     if (room.status !== 'waiting') {
-      return { success: false, error: '游戏已开始，无法加入' };
+      if (!room.allowMidJoin) {
+        return { success: false, error: '游戏已开始，房主不允许中途加入' };
+      }
+
+      const existingPlayer = room.players.find(p => p.openId === OPENID);
+      if (existingPlayer) {
+        return { success: true, roomId, gameType: room.gameType || 'texas', roomData: room, isRejoin: true };
+      }
+
+      const existingSpectator = (room.spectators || []).find(s => s.openId === OPENID);
+      if (existingSpectator) {
+        return { success: true, roomId, gameType: room.gameType || 'texas', roomData: room, isRejoin: true };
+      }
+
+      const now = Date.now();
+      const spectator = {
+        openId: OPENID,
+        name: playerName || '观众' + ((room.spectators || []).length + 1),
+        avatarUrl: playerAvatar || '',
+        joinedAt: now
+      };
+
+      await db.collection('rooms').doc(roomId).update({
+        data: {
+          spectators: _.push(spectator),
+          updatedAt: now
+        }
+      });
+
+      const updatedRoom = await db.collection('rooms').doc(roomId).get();
+      return { success: true, roomId, gameType: room.gameType || 'texas', roomData: updatedRoom.data, isSpectator: true };
     }
 
     if (room.players.length >= room.maxPlayers || room.maxPlayers > 16) {

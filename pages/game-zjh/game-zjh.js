@@ -19,6 +19,7 @@ Page({
     zjh_players: [],
     zjh_playerPositions: [],
     zjh_pot: 0,
+    zjh_potChanged: false,
     zjh_currentBet: 0,
     zjh_isDark: true,
     zjh_callAmount: 0,
@@ -45,6 +46,7 @@ Page({
     zjh_pendingAction: '',
     zjh_callButtonText: '跟注',
     zjh_raiseAmount: 0,
+    zjh_raiseMultiplier: 2,
     zjh_minRaiseNominal: 0,
     zjh_minRaiseActual: 0,
     zjh_maxRaise: 0,
@@ -106,8 +108,10 @@ Page({
 
     // 比牌动画
     zjh_showCompareAnim: false,
-    zjh_compareAnimData: null,
     zjh_compareAnimPhase: 0,
+    zjh_compareAnimData: null,
+    zjh_showTotalResult: false,
+    zjh_sortedTotalPlayers: [],
     zjh_compareAnimResult: '',
     zjh_compareAnimMyConfirm: false,
     zjh_compareAnimOppConfirm: false,
@@ -116,6 +120,10 @@ Page({
     zjh_compareAnimClosing: false,
     zjh_compareCloseCountdown: 0,
     _zjh_compareClosing: false,
+    zjh_compareLoser: '',
+    zjh_outPlayers: [],
+    zjh_isSpectator: false,
+    _lastZjhRoundCount: -1,
     _zjhCompareCloseTimer: null,
     _lastCompareTimestamp: 0,
     _compareAnimTimers: []
@@ -168,21 +176,81 @@ Page({
     const total = ringPlayers.length;
     if (total === 0) return { ringPlayers: [], ringPositions: [], ringIndices: [] };
 
-    // 固定位置（参考德州扑克），围桌排列
-    const basePositions = [
-      { top: '8%', left: '12%' },    // 左上
-      { top: '8%', left: '50%' },    // 中上
-      { top: '8%', left: '88%' },    // 右上
-      { top: '30%', left: '100%' },  // 右中上
-      { top: '70%', left: '100%' },  // 右中下
-      { top: '92%', left: '88%' },   // 右下
-      { top: '70%', left: '0%' },    // 左中下
-      { top: '30%', left: '0%' },    // 左中上
-    ];
+    // 围绕牌桌均匀分布 - 位置相对于牌桌(zjh-table-oval)
+    // 牌桌是竖椭圆，头像压在牌桌边缘显示（部分超出牌桌）
+    // 避开底部中央区域（留给我的手牌）
+    // 从顶部中央开始顺时针：顶中 -> 右上 -> 右中 -> 右下 -> 左下 -> 左中 -> 左上 -> 回顶中
+    const positionSchemes = {
+      1: [
+        { top: '0%', left: '50%' },
+      ],
+      2: [
+        { top: '0%', left: '28%' },
+        { top: '0%', left: '72%' },
+      ],
+      3: [
+        { top: '0%', left: '50%' },
+        { top: '30%', left: '100%' },
+        { top: '30%', left: '0%' },
+      ],
+      4: [
+        { top: '0%', left: '25%' },
+        { top: '0%', left: '75%' },
+        { top: '45%', left: '100%' },
+        { top: '45%', left: '0%' },
+      ],
+      5: [
+        { top: '0%', left: '50%' },
+        { top: '20%', left: '100%' },
+        { top: '60%', left: '100%' },
+        { top: '60%', left: '0%' },
+        { top: '20%', left: '0%' },
+      ],
+      6: [
+        { top: '0%', left: '25%' },
+        { top: '0%', left: '75%' },
+        { top: '30%', left: '100%' },
+        { top: '62%', left: '100%' },
+        { top: '62%', left: '0%' },
+        { top: '30%', left: '0%' },
+      ],
+      7: [
+        { top: '0%', left: '50%' },
+        { top: '8%', left: '88%' },
+        { top: '35%', left: '100%' },
+        { top: '60%', left: '100%' },
+        { top: '60%', left: '0%' },
+        { top: '35%', left: '0%' },
+        { top: '8%', left: '12%' },
+      ],
+      8: [
+        { top: '0%', left: '25%' },
+        { top: '0%', left: '75%' },
+        { top: '18%', left: '100%' },
+        { top: '45%', left: '100%' },
+        { top: '62%', left: '100%' },
+        { top: '62%', left: '0%' },
+        { top: '45%', left: '0%' },
+        { top: '18%', left: '0%' },
+      ],
+      9: [
+        { top: '0%', left: '50%' },
+        { top: '5%', left: '82%' },
+        { top: '22%', left: '100%' },
+        { top: '45%', left: '100%' },
+        { top: '62%', left: '100%' },
+        { top: '62%', left: '0%' },
+        { top: '45%', left: '0%' },
+        { top: '22%', left: '0%' },
+        { top: '5%', left: '18%' },
+      ],
+    };
 
+    // 使用预设方案，超过9人时循环使用
+    const scheme = positionSchemes[Math.min(total, 9)] || positionSchemes[9];
     const positions = [];
     for (let i = 0; i < total; i++) {
-      positions.push(basePositions[i % basePositions.length]);
+      positions.push(scheme[i % scheme.length]);
     }
 
     return { ringPlayers, ringPositions: positions, ringIndices };
@@ -612,6 +680,7 @@ Page({
     const app = getApp();
     const zjh_myOpenId = app.globalData.openId || '';
     const zjh_myPlayer = zjh_room.players.find(p => p.openId === zjh_myOpenId) || null;
+    const zjh_isSpectator = !zjh_myPlayer && (zjh_room.spectators || []).some(s => s.openId === zjh_myOpenId);
     const zjh_isCreator = zjh_room.creatorOpenId === zjh_myOpenId;
     const zjh_currentPlayer = zjh_room.players[zjh_room.currentPlayerIndex] || null;
     const zjh_isMyTurn = zjh_currentPlayer && zjh_currentPlayer.openId === zjh_myOpenId && zjh_room.status === 'playing';
@@ -621,12 +690,18 @@ Page({
     const zjh_currentBet = zjh_room.currentBet || zjh_room.zjh_baseBet || 100;
     const zjh_isDark = zjh_myPlayer ? (zjh_myPlayer.zjh_isDark !== false) : true;
     const zjh_multiplier = zjh_isDark ? 1 : 2;
-    const zjh_callAmount = zjh_myPlayer ? Math.max(0, Math.min(zjh_currentBet * zjh_multiplier - (zjh_myPlayer.totalBetThisRound || 0), zjh_myPlayer.chips)) : 0;
+    const zjh_callAmount = zjh_myPlayer ? Math.min(zjh_currentBet * zjh_multiplier, zjh_myPlayer.chips) : 0;
     const zjh_maxRounds = zjh_room.zjh_maxRounds || 20;
     const zjh_roundCount = zjh_room.zjh_roundCount || 0;
     const zjh_roundsLeft = zjh_maxRounds - zjh_roundCount;
     const zjh_capWarning = zjh_roundsLeft <= 3;
     const zjh_baseBet = zjh_room.zjh_baseBet || 100;
+
+    // 新回合开始，重置所有OUT状态
+    if (zjh_roundCount !== this.data._lastZjhRoundCount && this.data._lastZjhRoundCount !== -1) {
+      this.setData({ zjh_outPlayers: [] });
+    }
+    this.setData({ _lastZjhRoundCount: zjh_roundCount });
 
     const zjh_showActionButtons = zjh_isMyTurn && !zjh_isGameEnded && zjh_myPlayer &&
       zjh_myPlayer.isActive && !zjh_myPlayer.isAllIn;
@@ -635,16 +710,14 @@ Page({
 
     const zjh_autoStarting = zjh_room.status === 'playing' ? false : this.data.autoStarting;
 
-    // 跟注按钮文字
+    // 跟注按钮文字（跟上次下注金额，第一人跟底注）
     let zjh_callButtonText = '跟注';
     if (zjh_myPlayer && zjh_currentBet > 0) {
       const zjh_actualCall = zjh_currentBet * zjh_multiplier;
-      const zjh_alreadyBet = zjh_myPlayer.totalBetThisRound || 0;
-      const zjh_needCall = Math.max(0, zjh_actualCall - zjh_alreadyBet);
-      if (zjh_myPlayer.chips <= zjh_needCall) {
+      if (zjh_myPlayer.chips <= zjh_actualCall) {
         zjh_callButtonText = '全押 ' + zjh_myPlayer.chips;
-      } else if (zjh_needCall > 0) {
-        zjh_callButtonText = '跟注 ' + zjh_needCall + (zjh_isDark ? '' : ' (明牌x2)');
+      } else {
+        zjh_callButtonText = '跟注 ' + zjh_actualCall + (zjh_isDark ? '' : ' (明牌x2)');
       }
     }
 
@@ -652,7 +725,7 @@ Page({
     const zjh_minRaise = zjh_room.minRaise || zjh_baseBet;
     const zjh_minRaiseNominal = zjh_currentBet + zjh_minRaise;
     const zjh_minRaiseActual = zjh_minRaiseNominal * zjh_multiplier;
-    const zjh_totalChips = zjh_myPlayer ? (zjh_myPlayer.chips + (zjh_myPlayer.totalBetThisRound || 0)) : 0;
+    const zjh_totalChips = zjh_myPlayer ? zjh_myPlayer.chips : 0;
     const zjh_maxRaise = zjh_totalChips;
 
     let zjh_quickRaiseOptions = [];
@@ -721,6 +794,9 @@ Page({
       zjh_confirmedCount = zjh_allPlayersHand.filter(p => p.confirmedNext).length;
       zjh_totalToConfirm = zjh_allPlayersHand.length;
       zjh_allConfirmed = zjh_totalToConfirm > 0 && zjh_confirmedCount >= zjh_totalToConfirm;
+
+      const zjh_sortedTotalPlayers = [...zjh_allPlayersHand].sort((a, b) => b.chips - a.chips);
+      this.setData({ zjh_sortedTotalPlayers });
     }
 
     const zjh_canRebuy = (zjh_room.status === 'waiting' || zjh_room.status === 'ended') &&
@@ -749,9 +825,13 @@ Page({
     const zjh_activePlayerCount = zjh_activePlayers.length;
     const allPlayersReady = zjh_room.status === 'waiting' && zjh_activePlayerCount >= 2 && zjh_activePlayers.every(p => p.isReady);
 
+    // 底池变化检测 —— 用于触发数字跳动动画
+    const zjh_newPot = zjh_room.pot || 0;
+    const zjh_potValueChanged = zjh_newPot !== this.data.zjh_pot;
+
     const zjh_setData = {
       room: zjh_room, isLoading: false, isCreator: zjh_isCreator, isMyTurn: zjh_isMyTurn,
-      myOpenId: zjh_myOpenId, myPlayer: zjh_myPlayer,
+      myOpenId: zjh_myOpenId, myPlayer: zjh_myPlayer, zjh_isSpectator,
       activePlayerCount: zjh_activePlayerCount,
 
       zjh_players: (zjh_room.players || []).map(p => ({
@@ -762,7 +842,8 @@ Page({
       zjh_playerPositions: this.zjh_computePlayerPositions(zjh_room.players || [], zjh_myOpenId),
       ...this.zjh_computeRingData(zjh_room.players || [], zjh_myOpenId),
       zjh_selfIndex: (zjh_room.players || []).findIndex(p => p.openId === zjh_myOpenId),
-      zjh_pot: zjh_room.pot || 0,
+      zjh_pot: zjh_newPot,
+      zjh_potChanged: false,
       zjh_currentBet: zjh_currentBet,
       zjh_isDark: zjh_isDark,
       zjh_callAmount: zjh_callAmount,
@@ -798,16 +879,27 @@ Page({
     if (zjh_chatChanged) zjh_setData.chatMessages = zjh_newChatMessages;
     if (zjh_historyChanged) zjh_setData.zjh_gameHistory = zjh_newHistory;
 
+    // 如果底池变化，先开启动画，稍后关闭
+    if (zjh_potValueChanged) {
+      zjh_setData.zjh_potChanged = true;
+    }
+
     this.setData(zjh_setData);
+
+    // 动画结束后重置状态（略长于 CSS 动画时间）
+    if (zjh_potValueChanged) {
+      setTimeout(() => {
+        if (this.data.zjh_potChanged) {
+          this.setData({ zjh_potChanged: false });
+        }
+      }, 600);
+    }
 
     // 回合倒计时管理
     this.zjh_manageTurnTimer(zjh_isMyTurn, zjh_callAmount);
 
     // 等待阶段轮询
-    this.zjh_manageWaitSync(zjh_room.status === 'waiting');
-
-    // 服务器同步倒计时管理（所有玩家可见）
-    this._manageCountdown(zjh_room);
+    this.zjh_manageWaitSync(zjh_room.status === 'waiting' || zjh_room.status === 'ended');
 
     // 比牌动画
     this._checkCompareAnim(zjh_room);
@@ -819,7 +911,7 @@ Page({
       const confirmMap = zjh_room.zjh_compareConfirmMap || {};
 
       const opponentConfirmed = confirmMap[opponentOpenId] === true;
-      const meConfirmed = confirmMap[myOpenId] === true || this.data.zjh_compareAnimMyConfirm;
+      const meConfirmed = this.data.zjh_compareAnimMyConfirm;
 
       if (opponentConfirmed && !this.data.zjh_compareAnimOppConfirm) {
         this.setData({ zjh_compareAnimOppConfirm: true });
@@ -847,6 +939,10 @@ Page({
             clearInterval(this.data._zjhCompareCloseTimer);
             this.data._zjhCompareCloseTimer = null;
             this.data._zjh_compareClosing = false;
+            const outPlayers = [...(this.data.zjh_outPlayers || [])];
+            if (this.data.zjh_compareLoser) {
+              outPlayers.push(this.data.zjh_compareLoser);
+            }
             this.setData({
               zjh_showCompareAnim: false,
               zjh_compareAnimData: null,
@@ -855,6 +951,8 @@ Page({
               zjh_compareAnimOppConfirm: false,
               zjh_compareAnimClosing: false,
               zjh_compareCloseCountdown: 0,
+              zjh_compareLoser: '',
+              zjh_outPlayers: outPlayers,
               zjh_comparingPlayers: [],
               zjh_players: (this.data.zjh_players || []).map(p => ({
                 ...p,
@@ -881,23 +979,29 @@ Page({
     if (zjh_isGameEnded && zjh_allConfirmed) {
       this.zjh_checkAutoStart(zjh_room);
     }
+
+    // 服务器同步倒计时管理（所有玩家可见，放在checkAutoStart之后）
+    this._manageCountdown(zjh_room);
   },
 
   zjh_manageWaitSync(zjh_isWaiting) {
-    if (!zjh_isWaiting) {
+    const zjh_isEnded = this.data.room && this.data.room.status === 'ended';
+    const zjh_needPoll = zjh_isWaiting || zjh_isEnded;
+
+    if (!zjh_needPoll) {
       if (this.waitSyncTimer) { clearInterval(this.waitSyncTimer); this.waitSyncTimer = null; }
       return;
     }
     if (this.waitSyncTimer) return;
     this.waitSyncTimer = setInterval(() => {
       const { roomId, room } = this.data;
-      if (!roomId || !room || room.status !== 'waiting') {
+      if (!roomId || !room) {
         if (this.waitSyncTimer) { clearInterval(this.waitSyncTimer); this.waitSyncTimer = null; }
         return;
       }
-      if (this.data.lastWatchTime > 0 && Date.now() - this.data.lastWatchTime < 3000) return;
+      if (this.data.lastWatchTime > 0 && Date.now() - this.data.lastWatchTime < 2000) return;
       this.zjh_fetchRoomData(roomId, 0);
-    }, 5000);
+    }, 3000);
   },
 
   async zjh_convertCloudAvatars(zjh_room) {
@@ -938,7 +1042,15 @@ Page({
     } catch (e) { console.error('zjh avatar convert error:', e); }
   },
 
-  onAvatarError(e) { console.error('头像加载失败:', e.detail); },
+  onAvatarError(e) {
+    console.error('头像加载失败:', e.detail);
+    const idx = e.currentTarget && e.currentTarget.dataset ? e.currentTarget.dataset.idx : undefined;
+    if (idx !== undefined && this.data.zjh_players && this.data.zjh_players[idx]) {
+      const players = this.data.zjh_players.slice();
+      players[idx] = { ...players[idx], avatarUrl: '' };
+      this.setData({ zjh_players: players });
+    }
+  },
 
   // ============================
   // 倒计时管理
@@ -1021,7 +1133,8 @@ Page({
     const { zjh_minRaiseActual, zjh_quickRaiseOptions } = this.data;
     this.setData({
       zjh_showRaiseInput: true,
-      zjh_raiseAmount: zjh_minRaiseActual
+      zjh_raiseAmount: zjh_minRaiseActual,
+      zjh_raiseMultiplier: 2
     });
   },
 
@@ -1052,6 +1165,41 @@ Page({
   },
 
   onZjhCancelRaise() { this.setData({ zjh_showRaiseInput: false }); },
+
+  // 滑块快捷加注按钮
+  onZjhQuickRaiseAmount(e) {
+    const { zjh_currentBet, zjh_minRaiseActual, zjh_maxRaise } = this.data;
+    const multiplier = parseInt(e.currentTarget.dataset.value) || 2;
+    const target = zjh_currentBet * multiplier;
+    const amount = Math.min(Math.max(target, zjh_minRaiseActual), zjh_maxRaise);
+    this.setData({ zjh_raiseAmount: amount, zjh_raiseMultiplier: multiplier });
+  },
+
+  // 滑块变化
+  onZjhSliderChange(e) {
+    this.setData({ zjh_raiseAmount: parseInt(e.detail.value) || 0, zjh_raiseMultiplier: 0 });
+  },
+  onZjhSliderChanging(e) {
+    this.setData({ zjh_raiseAmount: parseInt(e.detail.value) || 0, zjh_raiseMultiplier: 0 });
+  },
+
+  // 直接通过滑块确认加注
+  onZjhConfirmRaiseDirect() {
+    const { zjh_raiseAmount, zjh_isDark, zjh_minRaiseActual, zjh_maxRaise, isMyTurn } = this.data;
+    if (!isMyTurn) { wx.showToast({ title: '不是你的回合', icon: 'none' }); return; }
+    const zjh_actual = Math.floor(zjh_raiseAmount);
+    const zjh_multiplier = zjh_isDark ? 1 : 2;
+    if (zjh_actual < zjh_minRaiseActual) {
+      wx.showToast({ title: '加注至少 ' + zjh_minRaiseActual, icon: 'none' });
+      return;
+    }
+    if (zjh_actual > zjh_maxRaise) {
+      wx.showToast({ title: '筹码不足', icon: 'none' });
+      return;
+    }
+    const zjh_nominal = Math.floor(zjh_actual / zjh_multiplier);
+    this.zjh_doAction('zjh_raise', zjh_nominal);
+  },
 
   // 比牌弹窗
   onZjhShowCompare() {
@@ -1144,6 +1292,8 @@ Page({
 
     if (zjh_room.startCountdownAt) return;
     if (this.data.startCountdown > 0) return;
+    if (this.data.autoStarting) return;
+    if (this.data._startGameFired) return;
 
     const app = getApp();
     if (zjh_room.creatorOpenId !== app.globalData.openId) return;
@@ -1165,6 +1315,7 @@ Page({
       name: 'startGameZJH',
       data: { roomNumber: zjh_room.roomNumber }
     }).then(res => {
+      this._clearRoomCountdown(zjh_room);
       const zjh_result = (res && res.result) || {};
       if (zjh_result.success && zjh_result.roomData) {
         this.zjh_updateRoomState(zjh_result.roomData);
@@ -1189,9 +1340,29 @@ Page({
     const zjh_updatedPlayers = room.players.map(p =>
       p.openId === myPlayer.openId ? { ...p, isReady: zjh_newIsReady } : p
     );
-    this.setData({ pendingReady: true });
     const zjh_newRoom = { ...room, players: zjh_updatedPlayers };
-    this.zjh_updateRoomState(zjh_newRoom);
+    this.setData({ pendingReady: true, room: zjh_newRoom });
+
+    // 立即更新环形玩家数据（避免调用整个zjh_updateRoomState的开销）
+    const app = getApp();
+    const zjh_myOpenId = app.globalData.openId || '';
+    const zjh_ring = this.zjh_computeRingData(zjh_updatedPlayers || [], zjh_myOpenId);
+    const zjh_activePlayers = (zjh_updatedPlayers || []).filter(p => p.chips > 0);
+    const zjh_activePlayerCount = zjh_activePlayers.length;
+    const zjh_allPlayersReady = room.status === 'waiting' && zjh_activePlayerCount >= 2 && zjh_activePlayers.every(p => p.isReady);
+    this.setData({
+      zjh_players: zjh_updatedPlayers,
+      zjh_playerPositions: zjh_ring.ringPositions,
+      zjh_playerIndices: zjh_ring.ringIndices,
+      ringPlayers: zjh_ring.ringPlayers,
+      ringPositions: zjh_ring.ringPositions,
+      ringIndices: zjh_ring.ringIndices,
+      allPlayersReady: zjh_allPlayersReady,
+      myPlayer: { ...myPlayer, isReady: zjh_newIsReady }
+    });
+
+    // 点击后立即弹出提示
+    wx.showToast({ title: zjh_newIsReady ? '准备中...' : '取消准备...', icon: 'none', duration: 800 });
 
     wx.cloud.callFunction({
       name: 'setReady',
@@ -1199,16 +1370,22 @@ Page({
     }).then(res => {
       this.setData({ pendingReady: false });
       if (res.result && res.result.success) {
-        wx.showToast({ title: zjh_newIsReady ? '已准备' : '取消准备', icon: 'none' });
+        wx.showToast({ title: zjh_newIsReady ? '✓ 已准备' : '✓ 取消准备', icon: 'success', duration: 1000 });
         this.zjh_checkAutoStartGame(zjh_newRoom);
+        this._manageCountdown(zjh_newRoom);
+        if (zjh_newIsReady && !this.data._fetchingCountdown) {
+          this.data._fetchingCountdown = true;
+          setTimeout(() => {
+            this.data._fetchingCountdown = false;
+            this.zjh_fetchRoomData(this.data.roomId, 0);
+          }, 300);
+        }
       } else {
         wx.showToast({ title: (res.result && res.result.error) || '操作失败', icon: 'none' });
-        this.zjh_fetchRoomData(roomId, 0);
       }
     }).catch(() => {
       this.setData({ pendingReady: false });
       wx.showToast({ title: '网络错误', icon: 'none' });
-      this.zjh_fetchRoomData(roomId, 0);
     });
   },
 
@@ -1294,12 +1471,11 @@ Page({
 
       if (remaining <= 0) {
         if (this.data._countdownTimer) { clearInterval(this.data._countdownTimer); this.data._countdownTimer = null; }
-        this.setData({ startCountdown: 0, autoStarting: true });
+        this.setData({ startCountdown: 0 });
         if (!this.data._startGameFired) {
           this.data._startGameFired = true;
           const app = getApp();
           if (zjh_room.creatorOpenId === app.globalData.openId) {
-            this._clearRoomCountdown(zjh_room);
             this.zjh_doStartGame(zjh_room);
           }
         }
@@ -1311,12 +1487,11 @@ Page({
           if (r <= 0) {
             clearInterval(timer);
             this.data._countdownTimer = null;
-            this.setData({ startCountdown: 0, autoStarting: true });
+            this.setData({ startCountdown: 0 });
             if (!this.data._startGameFired) {
               this.data._startGameFired = true;
               const app2 = getApp();
               if (zjh_room.creatorOpenId === app2.globalData.openId) {
-                this._clearRoomCountdown(zjh_room);
                 this.zjh_doStartGame(zjh_room);
               }
             }
@@ -1326,42 +1501,22 @@ Page({
         }, 1000);
         this.data._countdownTimer = timer;
       }
-    } else if (startCountdownAt === 0) {
-      const zjh_localDuration = zjh_room.status === 'waiting' ? 5 : (zjh_room.status === 'ended' ? 3 : 0);
-      if (zjh_localDuration > 0) {
-        const zjh_needStart = zjh_room.status === 'waiting'
-          ? (() => {
-              const zjh_activePs = zjh_room.players.filter(p => p.chips > 0);
-              return zjh_activePs.length >= 2 && zjh_activePs.every(p => p.isReady);
-            })()
-          : (() => {
-              const zjh_activePs = zjh_room.players.filter(p => p.chips > 0);
-              return zjh_activePs.length > 0 && zjh_activePs.every(p => p.confirmedNext) && zjh_activePs.length > 1;
-            })();
-        if (zjh_needStart && this.data.startCountdown <= 0 && !this.data._startGameFired) {
-          if (this.data._countdownTimer) { clearInterval(this.data._countdownTimer); }
-          const zjh_localStartAt = Date.now();
-          this.setData({ startCountdown: zjh_localDuration, autoStarting: true, _prevStartCountdownAt: zjh_localStartAt, _startGameFired: false });
-          const zjh_localTimer = setInterval(() => {
-            const zjh_r = Math.max(0, zjh_localDuration - Math.floor((Date.now() - zjh_localStartAt) / 1000));
-            if (zjh_r <= 0) {
-              clearInterval(zjh_localTimer);
-              this.data._countdownTimer = null;
-              this.setData({ startCountdown: 0, autoStarting: true });
-              if (!this.data._startGameFired) {
-                this.data._startGameFired = true;
-                const app3 = getApp();
-                if (zjh_room.creatorOpenId === app3.globalData.openId) {
-                  this._clearRoomCountdown(zjh_room);
-                  this.zjh_doStartGame(zjh_room);
-                }
-              }
-            } else {
-              this.setData({ startCountdown: zjh_r });
-            }
-          }, 1000);
-          this.data._countdownTimer = zjh_localTimer;
-        }
+    } else if (startCountdownAt === 0 && prevAt > 0) {
+      if (this.data.autoStarting || this.data._startGameFired) return;
+      if (this.data._countdownTimer) { clearInterval(this.data._countdownTimer); this.data._countdownTimer = null; }
+      this.setData({ startCountdown: 0, autoStarting: false, _prevStartCountdownAt: 0, _startGameFired: false });
+    } else if (startCountdownAt === 0 && !this.data._startGameFired) {
+      const zjh_activePs = zjh_room.players.filter(p => p.chips > 0);
+      const zjh_needCountdown = zjh_room.status === 'waiting'
+        ? zjh_activePs.length >= 2 && zjh_activePs.every(p => p.isReady)
+        : zjh_room.status === 'ended' && zjh_activePs.length >= 2
+          && zjh_activePs.every(p => p.confirmedNext);
+      if (zjh_needCountdown && !this.data._fetchingCountdown) {
+        this.data._fetchingCountdown = true;
+        setTimeout(() => {
+          this.data._fetchingCountdown = false;
+          this.zjh_fetchRoomData(this.data.roomId, 0);
+        }, 500);
       }
     }
   },
@@ -1447,12 +1602,15 @@ Page({
     }
 
     const zjh_comparingPair = [initiatorOpenId, targetOpenId];
+    const zjh_loser = zjh_isMe ? (zjh_animResult === 'lose' ? myOpenId : (zjh_animResult === 'win' ? targetOpenId : '')) : (zjh_animResult === 'win' ? myOpenId : (zjh_animResult === 'lose' ? targetOpenId : ''));
 
     this.setData({
       zjh_comparingPlayers: zjh_comparingPair,
+      zjh_compareLoser: zjh_loser,
       zjh_players: (this.data.zjh_players || []).map(p => ({
         ...p,
-        isComparing: zjh_comparingPair.indexOf(p.openId) > -1
+        isComparing: zjh_comparingPair.indexOf(p.openId) > -1,
+        zjh_isDark: zjh_comparingPair.indexOf(p.openId) > -1 ? false : p.zjh_isDark
       })),
       zjh_compareAnimData: {
         myCards: zjh_myCards,
@@ -1587,6 +1745,9 @@ Page({
   },
 
   onHideRebuyModal() { this.setData({ showRebuyModal: false }); },
+
+  onShowTotalResult() { this.setData({ zjh_showTotalResult: true }); },
+  onHideTotalResult() { this.setData({ zjh_showTotalResult: false }); },
 
   onConfirmRebuy() {
     const { roomId, rebuyAmount } = this.data;

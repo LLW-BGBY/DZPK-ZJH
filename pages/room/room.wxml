@@ -83,6 +83,23 @@
         </view>
       </view>
 
+      <!-- 游戏局数 -->
+      <view class="form-row">
+        <view class="form-group half">
+          <text class="label">游戏回合数</text>
+          <input class="input" type="number" value="{{maxHands}}" placeholder="3-50 默认10" bindinput="onMaxHandsInput" bindblur="onMaxHandsBlur" />
+        </view>
+      </view>
+
+      <!-- 中途加入 -->
+      <view class="form-group">
+        <view class="label-row">
+          <text class="label">允许中途加入</text>
+          <switch class="pwd-toggle" checked="{{allowMidJoin}}" bindchange="onAllowMidJoinChange" color="#f0d878" />
+        </view>
+        <text class="label-hint">开启后游戏进行中可以通过房间号旁观，下回合自动加入游戏</text>
+      </view>
+
       <!-- 密码设置 -->
       <view class="form-group">
         <view class="label-row">

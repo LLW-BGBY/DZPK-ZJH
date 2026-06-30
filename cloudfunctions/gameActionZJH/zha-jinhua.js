@@ -341,7 +341,7 @@ function zjh_findNextActor(zjh_players, zjh_startIdx) {
  */
 function zjh_processAction(zjh_ctx, zjh_action, zjh_amount = 0, zjh_targetOpenId = '') {
   const {
-    players, currentBet, minRaise, maxRounds, roundCount
+    players, currentBet, minRaise, maxRounds, roundCount, baseBet
   } = zjh_ctx;
 
   const zjh_player = players[zjh_ctx.currentPlayerIndex];
@@ -370,19 +370,18 @@ function zjh_processAction(zjh_ctx, zjh_action, zjh_amount = 0, zjh_targetOpenId
 
     case 'zjh_call':
       {
-        const zjh_needCall = Math.max(0, zjh_actualCall - zjh_player.totalBetThisRound);
-        const zjh_callCost = Math.min(zjh_needCall, zjh_player.chips);
+        const zjh_callCost = Math.min(zjh_actualCall, zjh_player.chips);
         zjh_player.chips -= zjh_callCost;
         zjh_player.totalBetThisRound += zjh_callCost;
         zjh_ctx.pot += zjh_callCost;
 
         if (zjh_player.chips === 0) {
           zjh_player.isAllIn = true;
-          zjh_actionMsg = `${zjh_player.name} 全押跟注到 ${zjh_player.totalBetThisRound}`;
+          zjh_actionMsg = `${zjh_player.name} 全押跟注 ${zjh_callCost}`;
           zjh_actionType = 'allin';
         } else {
           const zjh_darkLabel = zjh_isDark ? '暗牌' : '明牌';
-          zjh_actionMsg = `${zjh_player.name} ${zjh_darkLabel}跟注到 ${zjh_player.totalBetThisRound}`;
+          zjh_actionMsg = `${zjh_player.name} ${zjh_darkLabel}跟注 ${zjh_callCost}`;
           zjh_actionType = 'call';
         }
         zjh_newRoundCount = roundCount + 1;
@@ -398,22 +397,23 @@ function zjh_processAction(zjh_ctx, zjh_action, zjh_amount = 0, zjh_targetOpenId
         }
 
         const zjh_actualRaise = zjh_amount * zjh_multiplier;
-        const zjh_extraCost = zjh_actualRaise - zjh_player.totalBetThisRound;
+        const zjh_alreadyPaidForRaise = zjh_player.totalBetThisRound || 0;
+        const zjh_remainingToRaise = Math.max(0, zjh_actualRaise - zjh_alreadyPaidForRaise);
+        const zjh_raiseCost = Math.min(zjh_remainingToRaise, zjh_player.chips);
 
-        if (zjh_extraCost > zjh_player.chips) {
+        if (zjh_raiseCost > zjh_player.chips) {
           return { success: false, error: '筹码不足' };
         }
 
-        zjh_player.chips -= zjh_extraCost;
-        zjh_player.totalBetThisRound = zjh_actualRaise;
-        zjh_ctx.pot += zjh_extraCost;
+        zjh_player.chips -= zjh_raiseCost;
+        zjh_player.totalBetThisRound += zjh_raiseCost;
+        zjh_ctx.pot += zjh_raiseCost;
         zjh_ctx.currentBet = zjh_amount;
-        zjh_ctx.minRaise = zjh_amount - currentBet;
+        zjh_ctx.minRaise = Math.max(minRaise, zjh_amount - currentBet);
 
         players.forEach(p => {
           if (p.openId !== zjh_player.openId && p.isActive && !p.isAllIn) {
             p.hasActed = false;
-            p.totalBetThisRound = 0;
           }
         });
 
@@ -422,7 +422,7 @@ function zjh_processAction(zjh_ctx, zjh_action, zjh_amount = 0, zjh_targetOpenId
         }
 
         const zjh_raiseLabel = zjh_isDark ? '暗牌' : '明牌';
-        zjh_actionMsg = `${zjh_player.name} ${zjh_raiseLabel}加注到 ${zjh_amount} (实付 ${zjh_actualRaise})`;
+        zjh_actionMsg = `${zjh_player.name} ${zjh_raiseLabel}加注 ${zjh_raiseCost}`;
         zjh_actionType = 'raise';
         zjh_newRoundCount = 0;
         zjh_ctx.zjh_lastRaiser = zjh_player.openId;
@@ -437,13 +437,21 @@ function zjh_processAction(zjh_ctx, zjh_action, zjh_amount = 0, zjh_targetOpenId
         zjh_ctx.pot += zjh_allInAdd;
 
         const zjh_allInTotal = zjh_player.totalBetThisRound;
-        if (zjh_allInTotal > currentBet * zjh_multiplier) {
-          zjh_ctx.currentBet = Math.ceil(zjh_allInTotal / zjh_multiplier);
-          zjh_ctx.minRaise = zjh_ctx.currentBet - currentBet;
+        const zjh_allInNominal = Math.ceil(zjh_allInTotal / zjh_multiplier);
+        if (zjh_allInNominal > currentBet) {
+          zjh_ctx.currentBet = zjh_allInNominal;
+          zjh_ctx.minRaise = Math.max(baseBet, zjh_allInNominal - currentBet);
           players.forEach(p => {
             if (p.openId !== zjh_player.openId && p.isActive && !p.isAllIn) {
               p.hasActed = false;
-              p.totalBetThisRound = 0;
+            }
+          });
+        } else if (zjh_allInNominal < currentBet) {
+          zjh_ctx.currentBet = zjh_allInNominal;
+          zjh_ctx.minRaise = baseBet;
+          players.forEach(p => {
+            if (p.openId !== zjh_player.openId && p.isActive && !p.isAllIn) {
+              p.hasActed = false;
             }
           });
         }
@@ -479,7 +487,7 @@ function zjh_processAction(zjh_ctx, zjh_action, zjh_amount = 0, zjh_targetOpenId
           return { success: false, error: '不能和自己比牌' };
         }
 
-        const zjh_compareCost = Math.min(Math.max(0, zjh_actualCall - zjh_player.totalBetThisRound), zjh_player.chips);
+        const zjh_compareCost = Math.min(zjh_actualCall, zjh_player.chips);
         zjh_player.chips -= zjh_compareCost;
         zjh_player.totalBetThisRound += zjh_compareCost;
         zjh_ctx.pot += zjh_compareCost;

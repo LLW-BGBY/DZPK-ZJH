@@ -20,8 +20,8 @@ Page({
     ringPlayerIndices: [],
     gameHistory: [],
     showActionButtons: false,
-    raiseAmount: 6,
-    raiseMultiplier: 3,
+    raiseAmount: 2,
+    raiseMultiplier: 2,
     minRaise: 2,
     maxRaise: 100,
     showRaiseInput: false,
@@ -49,6 +49,11 @@ Page({
     canRebuy: false,
     showRebuyModal: false,
     rebuyAmount: 0,
+    showTotalResult: false,
+    sortedTotalPlayers: [],
+    isSpectator: false,
+    turnCountdown: 0,
+    _turnCountdownTimer: null,
     // 聊天
     showChat: false,
     chatUnread: 0,
@@ -119,49 +124,91 @@ Page({
   poker_computeRingPositions(players, myOpenId) {
     if (!players || players.length === 0) return { ringPlayers: [], ringPositions: [], ringPlayerIndices: [] };
 
-    const total = players.length;
-    const selfIdx = players.findIndex(p => p.openId === myOpenId);
-    const selfPlayer = selfIdx >= 0 ? players[selfIdx] : null;
-
-    // 其他玩家（排除自己）
-    const others = [];
-    const otherIndices = [];
+    // 其他玩家（排除自己）- 与炸金花保持一致
+    const ringPlayers = [];
+    const ringPlayerIndices = [];
     for (let i = 0; i < players.length; i++) {
-      if (i !== selfIdx) {
-        others.push(players[i]);
-        otherIndices.push(i);
+      if (players[i].openId !== myOpenId) {
+        ringPlayers.push(players[i]);
+        ringPlayerIndices.push(i);
       }
     }
+    const total = ringPlayers.length;
+    if (total === 0) return { ringPlayers: [], ringPositions: [], ringPlayerIndices: [] };
 
-    // 固定位置：我自己在左下角（seat-lower-left）
-    // 其他玩家从左上开始顺时针排列
-    const basePositions = [
-      { top: '8%', left: '12%' },    // 左上
-      { top: '8%', left: '50%' },    // 中上
-      { top: '8%', left: '88%' },    // 右上
-      { top: '30%', left: '100%' },  // 右中上
-      { top: '70%', left: '100%' },  // 右中下
-      { top: '92%', left: '88%' },   // 右下
-      { top: '70%', left: '0%' },    // 左中下
-      { top: '30%', left: '0%' },    // 左中上
-    ];
+    // 围绕牌桌均匀分布 - 与炸金花保持一致的布局逻辑
+    // 头像压住牌桌边缘显示（部分超出牌桌）
+    // 避开底部中央区域（留给我的手牌）
+    // 从顶部中央开始顺时针：顶中 -> 右上 -> 右中 -> 右下 -> 左下 -> 左中 -> 左上 -> 回顶中
+    const positionSchemes = {
+      1: [{ top: '0%', left: '50%' }],
+      2: [
+        { top: '0%', left: '28%' },
+        { top: '0%', left: '72%' },
+      ],
+      3: [
+        { top: '0%', left: '50%' },
+        { top: '30%', left: '100%' },
+        { top: '30%', left: '0%' },
+      ],
+      4: [
+        { top: '0%', left: '25%' },
+        { top: '0%', left: '75%' },
+        { top: '45%', left: '100%' },
+        { top: '45%', left: '0%' },
+      ],
+      5: [
+        { top: '0%', left: '50%' },
+        { top: '20%', left: '100%' },
+        { top: '60%', left: '100%' },
+        { top: '60%', left: '0%' },
+        { top: '20%', left: '0%' },
+      ],
+      6: [
+        { top: '0%', left: '25%' },
+        { top: '0%', left: '75%' },
+        { top: '30%', left: '100%' },
+        { top: '62%', left: '100%' },
+        { top: '62%', left: '0%' },
+        { top: '30%', left: '0%' },
+      ],
+      7: [
+        { top: '0%', left: '50%' },
+        { top: '8%', left: '88%' },
+        { top: '35%', left: '100%' },
+        { top: '60%', left: '100%' },
+        { top: '60%', left: '0%' },
+        { top: '35%', left: '0%' },
+        { top: '8%', left: '12%' },
+      ],
+      8: [
+        { top: '0%', left: '25%' },
+        { top: '0%', left: '75%' },
+        { top: '18%', left: '100%' },
+        { top: '45%', left: '100%' },
+        { top: '62%', left: '100%' },
+        { top: '62%', left: '0%' },
+        { top: '45%', left: '0%' },
+        { top: '18%', left: '0%' },
+      ],
+      9: [
+        { top: '0%', left: '50%' },
+        { top: '5%', left: '82%' },
+        { top: '22%', left: '100%' },
+        { top: '45%', left: '100%' },
+        { top: '62%', left: '100%' },
+        { top: '62%', left: '0%' },
+        { top: '45%', left: '0%' },
+        { top: '22%', left: '0%' },
+        { top: '5%', left: '18%' },
+      ],
+    };
 
-    const ringPlayers = [];
+    // 使用预设方案
+    const scheme = positionSchemes[Math.min(total, 9)] || positionSchemes[9];
     const ringPositions = [];
-    const ringPlayerIndices = [];
-
-    // 其他玩家按顺序填入位置
-    for (let i = 0; i < others.length && i < basePositions.length; i++) {
-      ringPlayers.push(others[i]);
-      ringPositions.push(basePositions[i]);
-      ringPlayerIndices.push(otherIndices[i]);
-    }
-
-    // 我自己固定在左下角
-    if (selfPlayer) {
-      ringPlayers.push(selfPlayer);
-      ringPositions.push({ top: '97%', left: '12%' }); // 左下
-      ringPlayerIndices.push(selfIdx);
+    for (let i = 0; i < total; i++) {
+      ringPositions.push(scheme[i % scheme.length]);
     }
 
     return { ringPlayers, ringPositions, ringPlayerIndices };
@@ -262,32 +309,6 @@ Page({
         totalBetThisRound: 2,
         holeCards: [],
         avatarUrl: ''
-      },
-      {
-        openId: 'debug_p7',
-        name: '大壮',
-        chips: 2200,
-        isActive: true,
-        isAllIn: false,
-        isFolded: false,
-        isReady: true,
-        rebuyCount: 0,
-        totalBetThisRound: 2,
-        holeCards: [],
-        avatarUrl: ''
-      },
-      {
-        openId: 'debug_p8',
-        name: '小美',
-        chips: 900,
-        isActive: true,
-        isAllIn: false,
-        isFolded: false,
-        isReady: true,
-        rebuyCount: 0,
-        totalBetThisRound: 2,
-        holeCards: [],
-        avatarUrl: ''
       }
     ];
 
@@ -297,7 +318,7 @@ Page({
       bb: 2,
       maxP: 9,
       dealerIndex: 0,
-      currentPlayerIndex: 8,
+      currentPlayerIndex: 3,
       status: 'playing',
       phase: 'FLOP',
       pot: 12,
@@ -313,15 +334,21 @@ Page({
         { value: '10', suit: 'H' }
       ],
       gameHistory: [
-        { id: 1, text: '第5手牌开始' },
-        { id: 2, text: '小红 弃牌' },
-        { id: 3, text: '阿强 全押 500' },
-        { id: 4, text: '老王 跟注 4' }
+        { type: 'system', message: '游戏开始！', time: Date.now() - 60000 },
+        { type: 'action', message: '小红 弃牌', time: Date.now() - 50000 },
+        { type: 'action', message: '阿强 全押 500', time: Date.now() - 40000 },
+        { type: 'action', message: '老王 跟注 4', time: Date.now() - 30000 },
+        { type: 'action', message: '小明 加注到 12', time: Date.now() - 20000 },
+        { type: 'system', message: '翻牌: A♥ K♠ Q♦', time: Date.now() - 10000 }
       ],
-      chatMessages: []
+      chatMessages: [
+        { name: '老王', message: '这手牌不错', type: 'chat', time: Date.now() - 60000 },
+        { name: '小明', message: '来啊，跟不跟', type: 'chat', time: Date.now() - 30000 },
+        { name: '阿呆', message: '我all in了！', type: 'chat', time: Date.now() - 10000 }
+      ]
     };
 
-    const poker_toCall = Math.max(0, poker_room.currentBet - poker_self.totalBetThisRound);
+    const poker_toCall = poker_room.currentBet;
     const poker_callAmount = Math.min(poker_toCall, poker_self.chips);
 
     const poker_ring = this.poker_computeRingPositions(poker_players, 'debug_self');
@@ -334,6 +361,8 @@ Page({
       ringPlayers: poker_ring.ringPlayers,
       ringPositions: poker_ring.ringPositions,
       ringPlayerIndices: poker_ring.ringPlayerIndices,
+      gameHistory: poker_room.gameHistory,
+      chatMessages: poker_room.chatMessages,
       isLoading: false,
       isCreator: false,
       isMyTurn: true,
@@ -481,7 +510,10 @@ Page({
   },
 
   manageWaitSync(isWaiting) {
-    if (!isWaiting) {
+    const isEnded = this.data.room && this.data.room.status === 'ended';
+    const needPoll = isWaiting || isEnded;
+
+    if (!needPoll) {
       if (this.waitSyncTimer) {
         clearInterval(this.waitSyncTimer);
         this.waitSyncTimer = null;
@@ -491,16 +523,16 @@ Page({
     if (this.waitSyncTimer) return;
     this.waitSyncTimer = setInterval(() => {
       const { roomId, room } = this.data;
-      if (!roomId || !room || room.status !== 'waiting') {
+      if (!roomId || !room) {
         if (this.waitSyncTimer) {
           clearInterval(this.waitSyncTimer);
           this.waitSyncTimer = null;
         }
         return;
       }
-      if (this.data.lastWatchTime > 0 && Date.now() - this.data.lastWatchTime < 3000) return;
+      if (this.data.lastWatchTime > 0 && Date.now() - this.data.lastWatchTime < 2000) return;
       this.fetchRoomData(roomId, 0);
-    }, 5000);
+    }, 3000);
   },
 
   async convertCloudAvatars(room) {
@@ -554,6 +586,12 @@ Page({
 
   onAvatarError(e) {
     console.error('头像加载失败:', e.detail);
+    const idx = e.currentTarget && e.currentTarget.dataset ? e.currentTarget.dataset.idx : undefined;
+    if (idx !== undefined && this.data.players && this.data.players[idx]) {
+      const players = this.data.players.slice();
+      players[idx] = { ...players[idx], avatarUrl: '' };
+      this.setData({ players });
+    }
   },
 
   async updateRoomState(room) {
@@ -587,11 +625,12 @@ Page({
       const myOpenId = app.globalData.openId || '';
       const myPlayer = room.players.find(p => p.openId === myOpenId) || null;
       const myPlayerIndex = myPlayer ? room.players.findIndex(p => p.openId === myOpenId) : -1;
+      const isSpectator = !myPlayer && (room.spectators || []).some(s => s.openId === myOpenId);
       const isCreator = room.creatorOpenId === myOpenId;
       const currentPlayer = room.players[room.currentPlayerIndex] || null;
       const isMyTurn = currentPlayer && currentPlayer.openId === myOpenId && room.status === 'playing';
       const isGameEnded = room.status === 'ended' || room.phase === 'SHOWDOWN';
-      const toCall = myPlayer ? Math.max(0, room.currentBet - myPlayer.totalBetThisRound) : 0;
+      const toCall = myPlayer ? room.currentBet : 0;
       const callAmount = myPlayer ? Math.min(toCall, myPlayer.chips) : 0;
       const showActionButtons = isMyTurn && !isGameEnded && myPlayer && myPlayer.isActive && !myPlayer.isAllIn;
       const showWaitingHint = !isMyTurn && room.status === 'playing' && myPlayer && myPlayer.isActive && !myPlayer.isAllIn && !isGameEnded;
@@ -628,11 +667,10 @@ Page({
       const maxHands = room.maxHands || 10;
       const isFinalHand = room.isFinalHand || handCount >= maxHands;
       if (isGameEnded && room.players) {
-        activePs = room.players.filter(p => (p.isActive || p.isAllIn) && p.chips > 0);
+        activePs = room.players.filter(p => p.chips > 0);
         totalToConfirm = activePs.length;
-        // 所有参与本局的玩家（有下注记录的都算），显示牌型和盈亏
-        const handPlayers = room.players.filter(p => (p.totalBet || 0) > 0);
-        allPlayersHand = handPlayers.map(p => {
+        // 所有参与本局的玩家，显示牌型和盈亏
+        allPlayersHand = room.players.map(p => {
           const displayProfit = p.profit || 0;
           const isWinner = displayProfit > 0;
           return {
@@ -655,6 +693,9 @@ Page({
         confirmedCount = allPlayersHand.filter(p => p.confirmedNext).length;
         totalToConfirm = allPlayersHand.length;
         allConfirmed = totalToConfirm > 0 && confirmedCount >= totalToConfirm;
+
+        const sortedTotalPlayers = [...allPlayersHand].sort((a, b) => b.chips - a.chips);
+        this.setData({ sortedTotalPlayers });
       }
 
       // 重买资格：等待或结算阶段 + 我是玩家 + 筹码为0 + 重买次数未用完
@@ -684,17 +725,34 @@ Page({
 
       const poker_ring = this.poker_computeRingPositions(room.players || [], myOpenId);
 
+      // 确保公共牌始终有5张，没有翻牌的显示背面
+      const rawCards = room.communityCards || [];
+      const fullCards = [];
+      for (let i = 0; i < 5; i++) {
+        if (rawCards[i] && rawCards[i].value) {
+          fullCards.push(rawCards[i]);
+        } else {
+          fullCards.push({}); // 空对象，用于显示背面
+        }
+      }
+
+      const pokerMinRaise = room.currentBet + room.minRaise;
+      const pokerMaxRaise = myPlayer ? (myPlayer.chips + myPlayer.totalBetThisRound) : 100;
+      const pokerDefaultRaise = Math.max(pokerMinRaise, room.minRaise || 2);
+
       const setDataObj = {
         room: room, isLoading: false, isCreator, isMyTurn, myOpenId, myPlayer, myPlayerIndex,
+        isSpectator,
         ringPlayers: poker_ring.ringPlayers,
         ringPositions: poker_ring.ringPositions,
         ringPlayerIndices: poker_ring.ringPlayerIndices,
         activePlayerCount,
         allPlayersHand, confirmedCount, totalToConfirm, allConfirmed,
-        currentPhase: room.phase, communityCards: room.communityCards || [],
+        currentPhase: room.phase, communityCards: fullCards,
         currentBet: room.currentBet || 0, toCall, callAmount, players: room.players || [],
         showActionButtons, showWaitingHint,
         callButtonText, quickRaiseOptions, isGameEnded, winners, autoStarting,
+        raiseAmount: pokerDefaultRaise, minRaise: pokerMinRaise, maxRaise: pokerMaxRaise,
         pendingAction: '',
         chatUnread, canRebuy, allPlayersReady,
         handCount, maxHands, isFinalHand,
@@ -707,20 +765,20 @@ Page({
       this.setData(setDataObj);
       this.animatePot(room.pot || 0);
       // 等待阶段轮询兜底，确保全员准备状态实时同步
-      this.manageWaitSync(room.status === 'waiting');
-
-      // 服务器同步倒计时管理（所有玩家可见）
-      this._manageCountdown(room);
-
-      // 等待阶段：全员准备后触发倒计时
-      this.checkAutoStartGame(room);
+      this.manageWaitSync(room.status === 'waiting' || room.status === 'ended');
 
       // 倒计时管理
       this.manageTurnTimer(isMyTurn, toCall);
+
+      // 等待阶段：全员准备后触发倒计时（先写DB再读，保证同步）
+      this.checkAutoStartGame(room);
       // 如果游戏结束且所有人确认 → 触发倒计时确认
       if (isGameEnded && allConfirmed && activePs.length > 1) {
         this.checkAutoStart(room);
       }
+
+      // 服务器同步倒计时管理（所有玩家可见，放在checkAutoStart之后）
+      this._manageCountdown(room);
     } catch (e) {
       console.error('updateRoomState error:', e);
       this.setData({ isLoading: false });
@@ -794,7 +852,13 @@ Page({
 
   onFold() { this.doAction('fold'); },
   onCheck() { this.doAction('check'); },
-  onCall() { this.doAction('call'); },
+  onCall() {
+    if (this.data.toCall === 0) {
+      this.doAction('check');
+    } else {
+      this.doAction('call');
+    }
+  },
   onAllIn() { this.doAction('allin'); },
 
   onShowRaise() {
@@ -852,7 +916,8 @@ Page({
         wx.showToast({ title: result.error, icon: 'none' });
       }
       this.setData({ pendingAction: '', showActionButtons: true });
-    }).catch(() => { this.setData({ pendingAction: '', showActionButtons: true }); });
+      this.watchRoom();
+    }).catch(() => { this.setData({ pendingAction: '', showActionButtons: true }); this.watchRoom(); });
   },
 
   onLeaveRoom() {
@@ -889,9 +954,27 @@ Page({
     const players = room.players.map(p =>
       p.openId === myPlayer.openId ? { ...p, isReady: newIsReady } : p
     );
-    this.setData({ pendingReady: true });
     const newRoom = { ...room, players };
-    this.updateRoomState(newRoom);
+    this.setData({ pendingReady: true, room: newRoom });
+
+    // 立即更新环形玩家数据（避免调用整个updateRoomState的开销）
+    const app = getApp();
+    const myOpenId = app.globalData.openId || '';
+    const poker_ring = this.poker_computeRingPositions(players || [], myOpenId);
+    const activePlayers = (players || []).filter(p => p.chips > 0);
+    const activePlayerCount = activePlayers.length;
+    const allPlayersReady = room.status === 'waiting' && activePlayerCount >= 2 && activePlayers.every(p => p.isReady);
+    this.setData({
+      ringPlayers: poker_ring.ringPlayers,
+      ringPositions: poker_ring.ringPositions,
+      ringPlayerIndices: poker_ring.ringPlayerIndices,
+      players: players,
+      allPlayersReady: allPlayersReady,
+      myPlayer: { ...myPlayer, isReady: newIsReady }
+    });
+
+    // 点击后立即弹出提示
+    wx.showToast({ title: newIsReady ? '准备中...' : '取消准备...', icon: 'none', duration: 800 });
 
     // 调用云函数（有管理员权限，不受创建者限制）
     wx.cloud.callFunction({
@@ -900,17 +983,23 @@ Page({
     }).then(res => {
       this.setData({ pendingReady: false });
       if (res.result && res.result.success) {
-        wx.showToast({ title: newIsReady ? '已准备' : '取消准备', icon: 'none' });
+        wx.showToast({ title: newIsReady ? '✓ 已准备' : '✓ 取消准备', icon: 'success', duration: 1000 });
         this.checkAutoStartGame(newRoom);
+        this._manageCountdown(newRoom);
+        if (newIsReady && !this.data._fetchingCountdown) {
+          this.data._fetchingCountdown = true;
+          setTimeout(() => {
+            this.data._fetchingCountdown = false;
+            this.fetchRoomData(this.data.roomId, 0);
+          }, 300);
+        }
       } else {
         wx.showToast({ title: (res.result && res.result.error) || '操作失败', icon: 'none' });
-        this.fetchRoomData(roomId, 0);
       }
     }).catch(err => {
       this.setData({ pendingReady: false });
       console.error('setReady callFunction error:', err);
       wx.showToast({ title: '网络错误，请重试', icon: 'none' });
-      this.fetchRoomData(roomId, 0);
     });
   },
 
@@ -933,12 +1022,11 @@ Page({
 
       if (remaining <= 0) {
         if (this.data._countdownTimer) { clearInterval(this.data._countdownTimer); this.data._countdownTimer = null; }
-        this.setData({ startCountdown: 0, autoStarting: false });
+        this.setData({ startCountdown: 0 });
         if (!this.data._startGameFired) {
           this.data._startGameFired = true;
           const app = getApp();
           if (room.creatorOpenId === app.globalData.openId) {
-            this._clearRoomCountdown(room);
             if (room.status === 'waiting') {
               this.doStartGame(room);
             } else {
@@ -954,12 +1042,11 @@ Page({
           if (r <= 0) {
             clearInterval(timer);
             this.data._countdownTimer = null;
-            this.setData({ startCountdown: 0, autoStarting: false });
+            this.setData({ startCountdown: 0 });
             if (!this.data._startGameFired) {
               this.data._startGameFired = true;
               const app2 = getApp();
               if (room.creatorOpenId === app2.globalData.openId) {
-                this._clearRoomCountdown(room);
                 if (room.status === 'waiting') {
                   this.doStartGame(room);
                 } else {
@@ -974,9 +1061,23 @@ Page({
         this.data._countdownTimer = timer;
       }
     } else if (startCountdownAt === 0 && prevAt > 0) {
-      if (this.data._countdownTimer) return;
+      if (this.data.autoStarting || this.data._startGameFired) return;
       if (this.data._countdownTimer) { clearInterval(this.data._countdownTimer); this.data._countdownTimer = null; }
       this.setData({ startCountdown: 0, autoStarting: false, _prevStartCountdownAt: 0, _startGameFired: false });
+    } else if (startCountdownAt === 0 && !this.data._startGameFired) {
+      // 所有人都准备了但倒计时还没开始，立即拉取一次（非房主也能看到倒计时）
+      const activePs = room.players.filter(p => p.chips > 0);
+      const needCountdown = room.status === 'waiting'
+        ? activePs.length >= 2 && activePs.every(p => p.isReady)
+        : room.status === 'ended' && activePs.length >= 2
+          && activePs.every(p => p.confirmedNext);
+      if (needCountdown && !this.data._fetchingCountdown) {
+        this.data._fetchingCountdown = true;
+        setTimeout(() => {
+          this.data._fetchingCountdown = false;
+          this.fetchRoomData(this.data.roomId, 0);
+        }, 500);
+      }
     }
   },
 
@@ -1020,6 +1121,8 @@ Page({
 
     if (room.startCountdownAt) return;
     if (this.data.startCountdown > 0) return;
+    if (this.data.autoStarting) return;
+    if (this.data._startGameFired) return;
 
     const app = getApp();
     if (room.creatorOpenId !== app.globalData.openId) return;
@@ -1038,6 +1141,7 @@ Page({
   doStartGame(room) {
     wx.showToast({ title: '游戏开始！', icon: 'success', duration: 2000 });
     wx.cloud.callFunction({ name: 'startGame', data: { roomNumber: room.roomNumber } }).then(res => {
+      this._clearRoomCountdown(room);
       const result = (res && res.result) || {};
       if (result.success && result.roomData) {
         this.updateRoomState(result.roomData);
@@ -1096,7 +1200,7 @@ Page({
   checkAutoStart(room) {
     if (this.data.autoStarting) return;
 
-    const activePs = room.players.filter(p => (p.isActive || p.isAllIn) && p.chips > 0);
+    const activePs = room.players.filter(p => p.chips > 0);
     const allConfirmed = activePs.length > 0 && activePs.every(p => p.confirmedNext);
     if (!allConfirmed) return;
     if (activePs.length <= 1) return;
@@ -1120,6 +1224,7 @@ Page({
 
   autoStartNextHand(room) {
     const { roomId } = this.data;
+    this._clearRoomCountdown(room);
     wx.showLoading({ title: '准备新对局...' });
     wx.cloud.callFunction({
       name: 'resetGame',
@@ -1313,6 +1418,9 @@ Page({
   onHideRebuyModal() {
     this.setData({ showRebuyModal: false });
   },
+
+  onShowTotalResult() { this.setData({ showTotalResult: true }); },
+  onHideTotalResult() { this.setData({ showTotalResult: false }); },
 
   onConfirmRebuy() {
     const { roomId, rebuyAmount } = this.data;
