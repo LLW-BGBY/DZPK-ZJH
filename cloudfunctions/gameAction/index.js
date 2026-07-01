@@ -24,7 +24,7 @@ function combinations(arr, k) {
 }
 
 /** 评估5张牌的牌型 (score 数值越大越强) */
-function scoreHand(cards) {
+function scoreHand(cards, shortDeck) {
   if (cards.length !== 5) return { rank: -1, score: 0, name: '无效', kickers: [] };
   const values = cards.map(c => RANK_VALUES[c.value] || 0).sort((a, b) => b - a);
   const suits = cards.map(c => c.suit);
@@ -36,6 +36,10 @@ function scoreHand(cards) {
     if (values[0] - values[4] === 4) { isStraight = true; straightHigh = values[0]; }
     if (values[0] === 14 && values[1] === 5 && values[2] === 4 && values[3] === 3 && values[4] === 2) {
       isStraight = true; straightHigh = 5;
+    }
+    // 短牌：A-6-7-8-9 顺子 (A作为5)
+    if (shortDeck && values[0] === 14 && values[1] === 9 && values[2] === 8 && values[3] === 7 && values[4] === 6) {
+      isStraight = true; straightHigh = 9;
     }
   }
 
@@ -53,23 +57,29 @@ function scoreHand(cards) {
     const quad = groups[0].value, kicker = groups[1].value;
     return { rank: 8, score: 8000000 + quad * 100 + kicker, name: '四条', kickers: [quad, kicker] };
   }
-  // 葫芦
+  // 葫芦 - 短牌: rank 6, 常规: rank 7
   if (groups[0].count === 3 && groups[1].count === 2) {
     const trip = groups[0].value, pair = groups[1].value;
-    return { rank: 7, score: 7000000 + trip * 100 + pair, name: '葫芦', kickers: [trip, pair] };
+    const r = shortDeck ? 6 : 7;
+    return { rank: r, score: r * 1000000 + trip * 100 + pair, name: '葫芦', kickers: [trip, pair] };
   }
-  // 同花
+  // 同花 - 短牌: rank 7 > 葫芦, 常规: rank 6
   if (isFlush) {
     const s = values[0] * 10000 + values[1] * 1000 + values[2] * 100 + values[3] * 10 + values[4];
-    return { rank: 6, score: 6000000 + s, name: '同花', kickers: values };
+    const r = shortDeck ? 7 : 6;
+    return { rank: r, score: r * 1000000 + s, name: '同花', kickers: values };
   }
-  // 顺子
-  if (isStraight) return { rank: 5, score: 5000000 + straightHigh, name: '顺子', kickers: [straightHigh] };
-  // 三条
+  // 三条 - 短牌: rank 5 > 顺子, 常规: rank 4
   if (groups[0].count === 3) {
     const trip = groups[0].value;
     const k = groups.filter(g => g.count === 1).map(g => g.value).sort((a, b) => b - a);
-    return { rank: 4, score: 4000000 + trip * 10000 + k[0] * 100 + k[1], name: '三条', kickers: [trip, ...k] };
+    const r = shortDeck ? 5 : 4;
+    return { rank: r, score: r * 1000000 + trip * 10000 + k[0] * 100 + k[1], name: '三条', kickers: [trip, ...k] };
+  }
+  // 顺子 - 短牌: rank 4 < 三条, 常规: rank 5
+  if (isStraight) {
+    const r = shortDeck ? 4 : 5;
+    return { rank: r, score: r * 1000000 + straightHigh, name: '顺子', kickers: [straightHigh] };
   }
   // 两对
   if (groups[0].count === 2 && groups[1].count === 2) {
@@ -90,17 +100,17 @@ function scoreHand(cards) {
 }
 
 /** 从7张牌中选最佳5张组合 */
-function evaluateBestHand(cards, communityCards) {
+function evaluateBestHand(cards, communityCards, shortDeck) {
   if (!cards || cards.length < 2) return { rank: -1, score: 0, name: '未知', value: [] };
   if (cards.length < 5) {
-    const s = scoreHand(cards);
+    const s = scoreHand(cards, shortDeck);
     return { ...s, value: cards.map(c => RANK_VALUES[c.value] || 0), isCommunityOnly: false };
   }
   const combos = combinations(cards, 5);
   let best = null;
   let bestCombo = null;
   for (const combo of combos) {
-    const result = scoreHand(combo);
+    const result = scoreHand(combo, shortDeck);
     if (!best || result.score > best.score) {
       best = result;
       bestCombo = combo;
@@ -111,7 +121,7 @@ function evaluateBestHand(cards, communityCards) {
   // 判断公共牌是否已是最大组合（即玩家手牌对最终牌型无提升）
   let isCommunityOnly = false;
   if (communityCards && communityCards.length >= 5) {
-    const communityResult = scoreHand(communityCards);
+    const communityResult = scoreHand(communityCards, shortDeck);
     isCommunityOnly = communityResult.score >= best.score;
   }
 
@@ -306,7 +316,10 @@ async function saveGameRecord(roomId, room, players, communityCards, history) {
         name: p.name,
         avatarUrl: p.avatarUrl || '',
         chips: p.chips,
-        totalBet: p.totalBet || 0,
+        totalBet: (p.totalBet || 0) + (p.totalBetThisRound || 0),
+        profit: p.profit || 0,
+        winAmount: p.winAmount || 0,
+        lossAmount: p.lossAmount || 0,
         isActive: p.isActive,
         isAllIn: p.isAllIn,
         handResult: p.handResult ? {
@@ -386,6 +399,7 @@ exports.main = async (event, context) => {
     if (!roomRes.data) return { success: false, error: '房间不存在' };
 
     const room = roomRes.data;
+    const isShortDeck = !!room.shortDeck;
     if (room.status !== 'playing') return { success: false, error: '游戏未开始' };
     if (room.phase === 'SHOWDOWN') return { success: false, error: '本局已结束' };
 
@@ -497,7 +511,7 @@ exports.main = async (event, context) => {
         // 评估赢家牌型（用于前端展示）
         if (winner.holeCards && winner.holeCards.length > 0) {
           const allCards = [...winner.holeCards, ...communityCards];
-          winner.handResult = evaluateBestHand(allCards, communityCards);
+          winner.handResult = evaluateBestHand(allCards, communityCards, isShortDeck);
         }
         // 计算盈亏：赢家获利 = 底池 - 自身下注，其他玩家亏损 = 各自下注额
         const getTotalBet = (p) => (p.totalBet || 0) + (p.totalBetThisRound || 0);
@@ -539,12 +553,13 @@ exports.main = async (event, context) => {
           hasActed: false,
           totalBetThisRound: 0,
           totalBet: 0,
-          chips: room.defaultChips || vChips,
+          chips: room.defaultChips || 10000,
           holeCards: [],
           handResult: null,
           rebuyCount: 0,
           seat: players.length + i,
-          joinedAt: now
+          joinedAt: now,
+          confirmedNext: false
         }));
         players.push(...promotedPlayers);
       }
@@ -579,7 +594,7 @@ exports.main = async (event, context) => {
         const showdownPlayers = players.filter(p => p.isActive || p.isAllIn);
         for (const p of showdownPlayers) {
           const allCards = [...p.holeCards, ...communityCards];
-          p.handResult = evaluateBestHand(allCards, communityCards);
+          p.handResult = evaluateBestHand(allCards, communityCards, isShortDeck);
         }
 
         const result = distributePot(players, communityCards, pot);
@@ -645,7 +660,7 @@ exports.main = async (event, context) => {
           const showdownPlayers = players.filter(p => p.isActive || p.isAllIn);
           for (const p of showdownPlayers) {
             const allCards = [...p.holeCards, ...communityCards];
-            p.handResult = evaluateBestHand(allCards, communityCards);
+            p.handResult = evaluateBestHand(allCards, communityCards, isShortDeck);
           }
           const result = distributePot(players, communityCards, pot);
           const winnerNames = result.winnerNames;
@@ -687,7 +702,7 @@ exports.main = async (event, context) => {
         const showdownPlayers = players.filter(p => p.isActive || p.isAllIn);
         for (const p of showdownPlayers) {
           const allCards = [...p.holeCards, ...communityCards];
-          p.handResult = evaluateBestHand(allCards, communityCards);
+          p.handResult = evaluateBestHand(allCards, communityCards, isShortDeck);
         }
         const result = distributePot(players, communityCards, pot);
         const winnerNames = result.winnerNames;

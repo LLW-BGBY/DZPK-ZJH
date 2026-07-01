@@ -41,7 +41,10 @@ exports.main = async (event, context) => {
       else pokerGames++;
 
       const defaultChips = record.defaultChips || 10000;
-      const profit = (player.chips || 0) - defaultChips;
+      // 优先使用记录中保存的 per-hand profit，旧记录用 chips - defaultChips 兜底
+      const profit = (player.profit !== undefined && player.profit !== null)
+        ? player.profit
+        : ((player.chips || 0) - defaultChips);
       totalProfit += profit;
 
       if (profit > 0) totalWins++;

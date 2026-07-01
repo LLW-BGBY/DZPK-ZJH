@@ -690,12 +690,12 @@ page {
 /* 游戏日志 - 底池下方 */
 .poker-table-log {
   position: absolute;
-  top: 55%;
+  top: 45%;
   left: 50%;
   transform: translateX(-50%);
-  max-height: 120rpx;
+  max-height: 100rpx;
   width: 88%;
-  padding: 6rpx 12rpx;
+  padding: 4rpx 12rpx;
   background: none;
   border-radius: 0;
   border: none;
@@ -729,7 +729,7 @@ page {
 /* 公共牌 - 牌桌中间 */
 .poker-community-wrap {
   position: absolute;
-  top: 48%;
+  top: 38%;
   left: 50%;
   transform: translate(-50%, -50%);
   display: flex;
@@ -804,12 +804,12 @@ page {
 /* 牌桌实时聊天 */
 .poker-table-chat {
   position: absolute;
-  top: 68%;
+  top: 56%;
   left: 50%;
   transform: translateX(-50%);
   width: 80%;
-  max-height: 120rpx;
-  padding: 6rpx 12rpx;
+  max-height: 100rpx;
+  padding: 4rpx 12rpx;
   background: none;
   border-radius: 0;
   border: none;
@@ -953,14 +953,59 @@ page {
   text-shadow: 0 1rpx 4rpx rgba(240, 216, 120, 0.3);
 }
 
+/* 下注筹码 - 头像卡片外部，顶部玩家显示在下方 */
 .poker-ring-bet {
-  font-size: 15rpx;
-  color: #7dd3fc;
-  font-weight: 600;
-  margin-top: 1rpx;
-  padding: 0 4rpx;
-  background: rgba(125, 211, 252, 0.1);
-  border-radius: 3rpx;
+  display: flex;
+  align-items: center;
+  gap: 3rpx;
+  margin-top: 6rpx;
+  padding: 3rpx 12rpx;
+  background: linear-gradient(135deg, rgba(26, 56, 40, 0.85), rgba(14, 36, 22, 0.85));
+  border: 1.5rpx solid rgba(45, 212, 150, 0.4);
+  border-radius: 20rpx;
+  white-space: nowrap;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.3), inset 0 1rpx 0 rgba(255, 255, 255, 0.05);
+}
+
+/* 左侧玩家：筹码显示在头像右边 */
+.poker-ring-seat .poker-ring-bet-left {
+  position: absolute;
+  left: calc(50% + 58rpx);
+  top: 4rpx;
+  margin-top: 0;
+  transform: none;
+  z-index: 2;
+}
+
+/* 右侧玩家：筹码显示在头像左边 */
+.poker-ring-seat .poker-ring-bet-right {
+  position: absolute;
+  right: calc(50% + 58rpx);
+  top: 4rpx;
+  margin-top: 0;
+  transform: none;
+  z-index: 2;
+}
+
+/* 筹码图标 */
+.poker-bet-chip-icon {
+  font-size: 22rpx;
+  line-height: 1;
+}
+
+/* 筹码数字 - 带动画 */
+.poker-bet-num {
+  font-size: 18rpx;
+  color: #f0d878;
+  font-weight: 800;
+  text-shadow: 0 1rpx 4rpx rgba(240, 216, 120, 0.3);
+  animation: poker-bet-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes poker-bet-pop {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.25); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 .poker-ring-badge {
@@ -1053,11 +1098,11 @@ page {
   flex-direction: column;
   align-items: center;
   gap: 2rpx;
-  padding: 4rpx 8rpx 6rpx;
+  padding: 6rpx 10rpx 8rpx;
   background: linear-gradient(160deg, rgba(20, 35, 25, 0.92), rgba(10, 22, 14, 0.92));
   border: 1.5px solid rgba(198, 162, 84, 0.25);
-  border-radius: 12rpx;
-  min-width: 80rpx;
+  border-radius: 14rpx;
+  min-width: 88rpx;
   box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.35);
   flex-shrink: 0;
   position: absolute;
@@ -1066,8 +1111,8 @@ page {
 }
 
 .poker-my-avatar {
-  width: 68rpx;
-  height: 68rpx;
+  width: 72rpx;
+  height: 72rpx;
   border-radius: 50%;
   background: linear-gradient(135deg, #3a6a4e 0%, #2a4a38 100%);
   display: flex;
@@ -1125,6 +1170,47 @@ page {
   color: #f0d878;
   font-weight: 700;
   text-shadow: 0 1rpx 4rpx rgba(240, 216, 120, 0.3);
+}
+
+/* 己方下注筹码 - 浮在头像上方 */
+.poker-my-bet {
+  position: absolute;
+  left: 14rpx;
+  top: -8rpx;
+  display: flex;
+  align-items: center;
+  gap: 3rpx;
+  margin-top: 0;
+  padding: 3rpx 12rpx;
+  background: linear-gradient(135deg, rgba(26, 56, 40, 0.88), rgba(14, 36, 22, 0.88));
+  border: 1.5rpx solid rgba(45, 212, 150, 0.4);
+  border-radius: 20rpx;
+  white-space: nowrap;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.3), inset 0 1rpx 0 rgba(255, 255, 255, 0.05);
+  z-index: 5;
+}
+
+.poker-my-bet .poker-bet-chip-icon {
+  font-size: 22rpx;
+  line-height: 1;
+}
+
+.poker-my-bet .poker-bet-num {
+  font-size: 18rpx;
+  color: #f0d878;
+  font-weight: 800;
+  text-shadow: 0 1rpx 4rpx rgba(240, 216, 120, 0.3);
+  animation: poker-bet-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.poker-my-rebuy {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1rpx;
+}
+
+.poker-my-rebuy text {
+  font-size: 14rpx;
 }
 
 /* 两张手牌 */

@@ -28,8 +28,8 @@
         <view class="modal-close" bindtap="onHideCreateModal">✕</view>
       </view>
 
-      <!-- 游戏模式选择 -->
-      <view class="form-group">
+      <!-- 游戏模式 -->
+      <view class="form-group" style="margin-bottom:20rpx">
         <text class="label">游戏模式</text>
         <view class="game-type-selector">
           <view class="gt-option {{gameType==='texas'?'active':''}}" bindtap="onSelectGameType" data-type="texas">
@@ -43,14 +43,16 @@
         </view>
       </view>
 
+      <!-- 房间名 -->
       <view class="form-group">
         <text class="label">房间名称</text>
         <input class="input" value="{{roomName}}" placeholder="输入房间名称" maxlength="20" bindinput="onRoomNameInput" />
       </view>
 
+      <!-- 人数 + 筹码 + 快捷选筹 -->
       <view class="form-row">
         <view class="form-group half">
-          <text class="label">人数上限</text>
+          <text class="label">人数</text>
           <input class="input" type="number" value="{{maxPlayers}}" placeholder="2-16" bindinput="onMaxPlayersInput" bindblur="onMaxPlayersBlur" />
         </view>
         <view class="form-group half">
@@ -58,57 +60,69 @@
           <input class="input" type="number" value="{{defaultChips}}" placeholder="100-100000" bindinput="onChipsInput" bindblur="onChipsBlur" />
         </view>
       </view>
+      <view class="preset-row">
+        <view class="preset-chip {{defaultChips == 500 ? 'active' : ''}}" bindtap="onChipPreset" data-value="500">500</view>
+        <view class="preset-chip {{defaultChips == 1000 ? 'active' : ''}}" bindtap="onChipPreset" data-value="1000">1000</view>
+        <view class="preset-chip {{defaultChips == 2000 ? 'active' : ''}}" bindtap="onChipPreset" data-value="2000">2000</view>
+        <view class="preset-chip {{defaultChips == 5000 ? 'active' : ''}}" bindtap="onChipPreset" data-value="5000">5000</view>
+        <view class="preset-chip {{defaultChips == 10000 ? 'active' : ''}}" bindtap="onChipPreset" data-value="10000">1w</view>
+      </view>
 
-      <!-- 德州扑克专属：盲注 -->
-      <view class="form-row" wx:if="{{gameType==='texas'}}">
-        <view class="form-group half">
-          <text class="label">小盲注</text>
-          <input class="input" type="number" value="{{smallBlind}}" placeholder="1-10000" bindinput="onSmallBlindInput" bindblur="onSmallBlindBlur" />
+      <!-- 盲注 + 快捷选注（德州） -->
+      <view wx:if="{{gameType==='texas'}}">
+        <view class="form-row" style="margin-top:16rpx">
+          <view class="form-group half">
+            <text class="label">小盲 / 大盲</text>
+            <view class="input-pair">
+              <input class="input input-pair-half" type="number" value="{{smallBlind}}" placeholder="小盲" bindinput="onSmallBlindInput" bindblur="onSmallBlindBlur" />
+              <text class="input-pair-sep">/</text>
+              <input class="input input-pair-half" type="number" value="{{bigBlind}}" placeholder="大盲" bindinput="onBigBlindInput" bindblur="onBigBlindBlur" />
+            </view>
+          </view>
+          <view class="form-group half">
+            <text class="label">回合数</text>
+            <input class="input" type="number" value="{{maxHands}}" placeholder="10" bindinput="onMaxHandsInput" bindblur="onMaxHandsBlur" />
+          </view>
         </view>
-        <view class="form-group half">
-          <text class="label">大盲注</text>
-          <input class="input" type="number" value="{{bigBlind}}" placeholder="2-20000" bindinput="onBigBlindInput" bindblur="onBigBlindBlur" />
+        <view class="preset-row">
+          <view class="preset-chip {{smallBlind == 1 && bigBlind == 2 ? 'active' : ''}}" bindtap="onBlindPreset" data-sb="1" data-bb="2">1/2</view>
+          <view class="preset-chip {{smallBlind == 2 && bigBlind == 4 ? 'active' : ''}}" bindtap="onBlindPreset" data-sb="2" data-bb="4">2/4</view>
+          <view class="preset-chip {{smallBlind == 5 && bigBlind == 10 ? 'active' : ''}}" bindtap="onBlindPreset" data-sb="5" data-bb="10">5/10</view>
+          <view class="preset-chip {{smallBlind == 10 && bigBlind == 20 ? 'active' : ''}}" bindtap="onBlindPreset" data-sb="10" data-bb="20">10/20</view>
+          <view class="preset-chip {{smallBlind == 25 && bigBlind == 50 ? 'active' : ''}}" bindtap="onBlindPreset" data-sb="25" data-bb="50">25/50</view>
         </view>
       </view>
 
-      <!-- 炸金花专属：底注 & 封顶轮数 -->
-      <view class="form-row" wx:if="{{gameType==='zjh'}}">
-        <view class="form-group half">
-          <text class="label">底注</text>
-          <input class="input" type="number" value="{{zjhBaseBet}}" placeholder="1-100" bindinput="onZjhBaseBetInput" bindblur="onZjhBaseBetBlur" />
-        </view>
-        <view class="form-group half">
-          <text class="label">封顶轮数</text>
-          <input class="input" type="number" value="{{zjhMaxRounds}}" placeholder="5-50" bindinput="onZjhMaxRoundsInput" bindblur="onZjhMaxRoundsBlur" />
-        </view>
-      </view>
-
-      <!-- 游戏局数 -->
-      <view class="form-row">
-        <view class="form-group half">
-          <text class="label">游戏回合数</text>
-          <input class="input" type="number" value="{{maxHands}}" placeholder="3-50 默认10" bindinput="onMaxHandsInput" bindblur="onMaxHandsBlur" />
+      <!-- 底注 + 轮数（炸金花） -->
+      <view wx:if="{{gameType==='zjh'}}">
+        <view class="form-row" style="margin-top:16rpx">
+          <view class="form-group half">
+            <text class="label">底注</text>
+            <input class="input" type="number" value="{{zjhBaseBet}}" placeholder="10-1000" bindinput="onZjhBaseBetInput" bindblur="onZjhBaseBetBlur" />
+          </view>
+          <view class="form-group half">
+            <text class="label">封顶轮数</text>
+            <input class="input" type="number" value="{{zjhMaxRounds}}" placeholder="5-50" bindinput="onZjhMaxRoundsInput" bindblur="onZjhMaxRoundsBlur" />
+          </view>
         </view>
       </view>
 
-      <!-- 中途加入 -->
-      <view class="form-group">
-        <view class="label-row">
-          <text class="label">允许中途加入</text>
-          <switch class="pwd-toggle" checked="{{allowMidJoin}}" bindchange="onAllowMidJoinChange" color="#f0d878" />
+      <!-- 开关选项（紧凑排列） -->
+      <view class="form-group" style="margin-top:20rpx">
+        <view class="switch-compact" wx:if="{{gameType==='texas'}}">
+          <text>短牌模式 (6+)</text>
+          <switch checked="{{shortDeck}}" bindchange="onShortDeckChange" color="#f0d878" />
         </view>
-        <text class="label-hint">开启后游戏进行中可以通过房间号旁观，下回合自动加入游戏</text>
-      </view>
-
-      <!-- 密码设置 -->
-      <view class="form-group">
-        <view class="label-row">
-          <text class="label">房间密码</text>
-          <switch class="pwd-toggle" checked="{{enablePassword}}" bindchange="onEnablePasswordChange" color="#f0d878" />
+        <view class="switch-compact">
+          <text>允许中途加入</text>
+          <switch checked="{{allowMidJoin}}" bindchange="onAllowMidJoinChange" color="#f0d878" />
         </view>
-        <input wx:if="{{enablePassword}}" class="input input-pwd" type="text" password maxlength="12"
-          value="{{roomPassword}}" placeholder="输入房间密码（可选）" bindinput="onRoomPasswordInput" />
-        <text wx:else class="label-hint">开启后加入需要输入密码</text>
+        <view class="switch-compact">
+          <text>设置密码</text>
+          <switch checked="{{enablePassword}}" bindchange="onEnablePasswordChange" color="#f0d878" />
+        </view>
+        <input wx:if="{{enablePassword}}" class="input input-pwd" style="margin-top:12rpx" type="text" password maxlength="12"
+          value="{{roomPassword}}" placeholder="输入房间密码" bindinput="onRoomPasswordInput" />
       </view>
 
       <view class="modal-buttons">
@@ -127,13 +141,24 @@
       </view>
       <view class="form-group">
         <text class="label">房间号</text>
-        <input class="input input-room" type="number" value="{{joinRoomNumber}}" placeholder="输入6位房间号" maxlength="6" bindinput="onJoinRoomNumberInput" />
+        <view class="input-with-btn">
+          <input class="input input-room" type="number" value="{{joinRoomNumber}}" placeholder="6位数字" maxlength="6" bindinput="onJoinRoomNumberInput" />
+          <view class="paste-btn" bindtap="onPasteRoomNumber">
+            <text>📋</text>
+            <text>粘贴</text>
+          </view>
+        </view>
+        <text class="label-tip" wx:if="{{pastedRoomNumber}}">已从剪贴板识别: {{pastedRoomNumber}}</text>
       </view>
       <!-- 密码输入框（有密码的房间才显示）-->
       <view class="form-group" wx:if="{{joinNeedPassword}}">
         <text class="label">房间密码 🔒</text>
         <input class="input input-pwd" type="text" password maxlength="12"
           value="{{joinRoomPassword}}" placeholder="输入房间密码" bindinput="onJoinPasswordInput" />
+      </view>
+      <view class="form-group tips-box">
+        <text class="tips-icon">💡</text>
+        <text class="tips-text">复制房间号后点击粘贴，可自动提取6位数字</text>
       </view>
       <view class="modal-buttons">
         <button class="btn btn-cancel" bindtap="onHideJoinModal">取消</button>
@@ -181,7 +206,7 @@
             <view class="room-name-row">
               <text class="room-name">{{item.roomName}}</text>
               <text class="room-lock" wx:if="{{item.hasPassword}}">🔒</text>
-              <text class="room-game-badge {{item.gameType==='zjh'?'badge-zjh':'badge-texas'}}">{{item.gameType==='zjh'?'炸金花':'德州'}}</text>
+              <text class="room-game-badge {{item.gameType==='zjh'?'badge-zjh':'badge-texas'}}">{{item.gameType==='zjh'?'炸金花':(item.shortDeck?'短牌':'德州')}}</text>
             </view>
             <text class="room-number">房间号: {{item.roomNumber}}</text>
             <text class="room-meta">{{item.players.length}}/{{item.maxPlayers}} 人 · {{item.status === 'waiting' ? '等待中' : '游戏中'}}</text>

@@ -1852,6 +1852,61 @@ page {
   text-shadow: 0 1rpx 4rpx rgba(240, 216, 120, 0.3);
 }
 
+/* 下注筹码 - 头像卡片外部，顶部玩家显示在下方 */
+.zjh-ring-bet {
+  display: flex;
+  align-items: center;
+  gap: 3rpx;
+  margin-top: 6rpx;
+  padding: 3rpx 12rpx;
+  background: linear-gradient(135deg, rgba(26, 46, 38, 0.88), rgba(14, 28, 20, 0.88));
+  border: 1.5rpx solid rgba(45, 212, 150, 0.4);
+  border-radius: 20rpx;
+  white-space: nowrap;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.3), inset 0 1rpx 0 rgba(255, 255, 255, 0.05);
+}
+
+/* 左侧玩家：筹码显示在头像右边 */
+.zjh-ring-seat .zjh-ring-bet-left {
+  position: absolute;
+  left: calc(50% + 53rpx);
+  top: 4rpx;
+  margin-top: 0;
+  transform: none;
+  z-index: 2;
+}
+
+/* 右侧玩家：筹码显示在头像左边 */
+.zjh-ring-seat .zjh-ring-bet-right {
+  position: absolute;
+  right: calc(50% + 53rpx);
+  top: 4rpx;
+  margin-top: 0;
+  transform: none;
+  z-index: 2;
+}
+
+/* 筹码图标 */
+.zjh-bet-chip-icon {
+  font-size: 22rpx;
+  line-height: 1;
+}
+
+/* 筹码数字 - 带动画 */
+.zjh-bet-num {
+  font-size: 18rpx;
+  color: #f0d878;
+  font-weight: 800;
+  text-shadow: 0 1rpx 4rpx rgba(240, 216, 120, 0.3);
+  animation: zjh-bet-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes zjh-bet-pop {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.25); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 .zjh-ring-rebuy {
   position: absolute;
   right: 2rpx;
@@ -2030,6 +2085,47 @@ page {
   text-shadow: 0 1rpx 4rpx rgba(240, 216, 120, 0.3);
 }
 
+/* 己方下注筹码 - 浮在头像上方 */
+.zjh-myhand-bet {
+  position: absolute;
+  left: 14rpx;
+  top: -8rpx;
+  display: flex;
+  align-items: center;
+  gap: 3rpx;
+  margin-top: 0;
+  padding: 3rpx 12rpx;
+  background: linear-gradient(135deg, rgba(26, 46, 38, 0.88), rgba(14, 28, 20, 0.88));
+  border: 1.5rpx solid rgba(45, 212, 150, 0.4);
+  border-radius: 20rpx;
+  white-space: nowrap;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.3), inset 0 1rpx 0 rgba(255, 255, 255, 0.05);
+  z-index: 5;
+}
+
+.zjh-myhand-bet .zjh-bet-chip-icon {
+  font-size: 22rpx;
+  line-height: 1;
+}
+
+.zjh-myhand-bet .zjh-bet-num {
+  font-size: 18rpx;
+  color: #f0d878;
+  font-weight: 800;
+  text-shadow: 0 1rpx 4rpx rgba(240, 216, 120, 0.3);
+  animation: zjh-bet-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.zjh-my-rebuy {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1rpx;
+}
+
+.zjh-my-rebuy text {
+  font-size: 12rpx;
+}
+
 /* 手牌 + 标签的右侧容器 */
 .zjh-hand-content {
   display: flex;
@@ -2068,6 +2164,17 @@ page {
   background: rgba(230, 126, 34, 0.15);
   border-radius: 6rpx;
   border: 1px solid rgba(230, 126, 34, 0.3);
+}
+
+.zjh-my-rank-tag {
+  color: #f0d878;
+  font-size: 20rpx;
+  font-weight: 700;
+  padding: 3rpx 10rpx;
+  background: linear-gradient(135deg, rgba(240, 216, 120, 0.15), rgba(200, 160, 60, 0.08));
+  border-radius: 6rpx;
+  border: 1px solid rgba(240, 216, 120, 0.3);
+  text-shadow: 0 1rpx 4rpx rgba(240, 216, 120, 0.25);
 }
 
 .zjh-my-call-tag {

@@ -1,3 +1,6 @@
+// 下注筹码动画版本追踪
+let _pokerBetVers = {};
+
 Page({
   data: {
     roomId: '',
@@ -10,6 +13,7 @@ Page({
     myPlayerIndex: -1,
     currentPhase: '',
     communityCards: [],
+    myHandRank: '',
     pot: 0,
     currentBet: 0,
     toCall: 0,
@@ -34,6 +38,7 @@ Page({
     callButtonText: '跟注',
     quickRaiseOptions: [],
     activePlayerCount: 0,
+    readyCount: 0,
     allPlayersHand: [],
     confirmedCount: 0,
     totalToConfirm: 0,
@@ -141,39 +146,39 @@ Page({
     // 避开底部中央区域（留给我的手牌）
     // 从顶部中央开始顺时针：顶中 -> 右上 -> 右中 -> 右下 -> 左下 -> 左中 -> 左上 -> 回顶中
     const positionSchemes = {
-      1: [{ top: '0%', left: '50%' }],
+      1: [{ top: '4%', left: '50%' }],
       2: [
-        { top: '0%', left: '28%' },
-        { top: '0%', left: '72%' },
+        { top: '4%', left: '28%' },
+        { top: '4%', left: '72%' },
       ],
       3: [
-        { top: '0%', left: '50%' },
+        { top: '4%', left: '50%' },
         { top: '30%', left: '100%' },
         { top: '30%', left: '0%' },
       ],
       4: [
-        { top: '0%', left: '25%' },
-        { top: '0%', left: '75%' },
+        { top: '4%', left: '25%' },
+        { top: '4%', left: '75%' },
         { top: '45%', left: '100%' },
         { top: '45%', left: '0%' },
       ],
       5: [
-        { top: '0%', left: '50%' },
+        { top: '4%', left: '50%' },
         { top: '20%', left: '100%' },
         { top: '60%', left: '100%' },
         { top: '60%', left: '0%' },
         { top: '20%', left: '0%' },
       ],
       6: [
-        { top: '0%', left: '25%' },
-        { top: '0%', left: '75%' },
+        { top: '4%', left: '25%' },
+        { top: '4%', left: '75%' },
         { top: '30%', left: '100%' },
         { top: '62%', left: '100%' },
         { top: '62%', left: '0%' },
         { top: '30%', left: '0%' },
       ],
       7: [
-        { top: '0%', left: '50%' },
+        { top: '4%', left: '50%' },
         { top: '8%', left: '88%' },
         { top: '35%', left: '100%' },
         { top: '60%', left: '100%' },
@@ -182,8 +187,8 @@ Page({
         { top: '8%', left: '12%' },
       ],
       8: [
-        { top: '0%', left: '25%' },
-        { top: '0%', left: '75%' },
+        { top: '4%', left: '25%' },
+        { top: '4%', left: '75%' },
         { top: '18%', left: '100%' },
         { top: '45%', left: '100%' },
         { top: '62%', left: '100%' },
@@ -192,7 +197,7 @@ Page({
         { top: '18%', left: '0%' },
       ],
       9: [
-        { top: '0%', left: '50%' },
+        { top: '4%', left: '50%' },
         { top: '5%', left: '82%' },
         { top: '22%', left: '100%' },
         { top: '45%', left: '100%' },
@@ -208,10 +213,107 @@ Page({
     const scheme = positionSchemes[Math.min(total, 9)] || positionSchemes[9];
     const ringPositions = [];
     for (let i = 0; i < total; i++) {
-      ringPositions.push(scheme[i % scheme.length]);
+      const pos = scheme[i % scheme.length];
+      // 根据位置判断类型：左侧(left)头像在左筹码在右，右侧(right)头像在右筹码在左，其余顶部(top)筹码在下方
+      let type = 'top';
+      if (pos.left === '0%') type = 'left';
+      else if (pos.left === '100%') type = 'right';
+      // 筹码动画版本：每次下注金额变化时递增，触发 CSS 动画重播
+      const player = ringPlayers[i];
+      const betKey = player.openId + '_bet';
+      const prev = _pokerBetVers[betKey];
+      const curBet = player.totalBetThisRound || 0;
+      let ver = 0;
+      if (!prev || prev.bet !== curBet) {
+        ver = prev ? prev.ver + 1 : 0;
+        _pokerBetVers[betKey] = { bet: curBet, ver: ver };
+      } else {
+        ver = prev.ver;
+      }
+      ringPositions.push({ top: pos.top, left: pos.left, type: type, betKey: ver });
     }
 
     return { ringPlayers, ringPositions, ringPlayerIndices };
+  },
+
+  // 德州扑克牌型评估：根据公共牌 + 手牌计算当前最佳牌型
+  poker_evaluateHand(communityCards, holeCards) {
+    if (!holeCards || holeCards.length < 2) return '';
+    const rankMap = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14 };
+    const validCommunity = (communityCards || []).filter(c => c && c.value);
+    const allCards = [...holeCards, ...validCommunity].map(c => ({ ...c, rank: rankMap[c.value] || 0 }));
+
+    // 只有手牌（翻牌前）：检查是否为对子
+    if (validCommunity.length === 0) {
+      return allCards[0].rank === allCards[1].rank ? '一对' : '高牌';
+    }
+
+    // 从所有牌中取最佳5张组合
+    const combos = this._genPokerCombos(allCards, 5);
+    let best = { rank: -1, name: '高牌' };
+    for (const combo of combos) {
+      const r = this._evalPoker5(combo);
+      if (r.rank > best.rank) best = r;
+    }
+    return best.name;
+  },
+
+  // 生成 n 张牌的所有 k 张组合
+  _genPokerCombos(cards, k) {
+    if (cards.length <= k) return [cards];
+    const result = [];
+    const helper = (start, chosen) => {
+      if (chosen.length === k) { result.push([...chosen]); return; }
+      for (let i = start; i < cards.length; i++) {
+        chosen.push(cards[i]);
+        helper(i + 1, chosen);
+        chosen.pop();
+      }
+    };
+    helper(0, []);
+    return result;
+  },
+
+  // 评估5张牌的牌型：返回 { rank: 0-9, name: '...' }
+  _evalPoker5(cards) {
+    const sorted = [...cards].sort((a, b) => b.rank - a.rank);
+    const ranks = sorted.map(c => c.rank);
+    const suits = sorted.map(c => c.suit);
+
+    const isFlush = suits.every(s => s === suits[0]);
+    // 顺子检测（含 A-2-3-4-5）
+    let isStraight = false;
+    if (ranks[0] - ranks[4] === 4 && new Set(ranks).size === 5) {
+      isStraight = true;
+    } else if (ranks[0] === 14 && ranks[1] === 5 && ranks[2] === 4 && ranks[3] === 3 && ranks[4] === 2) {
+      isStraight = true; // A-5-4-3-2
+    }
+
+    // 统计相同点数的数量
+    const countMap = {};
+    ranks.forEach(r => { countMap[r] = (countMap[r] || 0) + 1; });
+    const counts = Object.values(countMap).sort((a, b) => b - a);
+
+    // 皇家同花顺
+    if (isFlush && isStraight && ranks[0] === 14 && ranks[1] === 13) return { rank: 9, name: '皇家同花顺' };
+    // 同花顺
+    if (isFlush && isStraight) return { rank: 8, name: '同花顺' };
+    // 四条
+    if (counts[0] === 4) return { rank: 7, name: '四条' };
+    // 葫芦
+    if (counts[0] === 3 && counts[1] === 2) return { rank: 6, name: '葫芦' };
+    // 同花
+    if (isFlush) return { rank: 5, name: '同花' };
+    // 顺子
+    if (isStraight) return { rank: 4, name: '顺子' };
+    // 三条
+    if (counts[0] === 3) return { rank: 3, name: '三条' };
+    // 两对
+    if (counts[0] === 2 && counts[1] === 2) return { rank: 2, name: '两对' };
+    // 一对
+    if (counts[0] === 2) return { rank: 1, name: '一对' };
+    // 高牌
+    return { rank: 0, name: '高牌' };
   },
 
   poker_loadDebugData() {
@@ -352,11 +454,13 @@ Page({
     const poker_callAmount = Math.min(poker_toCall, poker_self.chips);
 
     const poker_ring = this.poker_computeRingPositions(poker_players, 'debug_self');
+    const poker_myHandRank = this.poker_evaluateHand(poker_room.communityCards, poker_self.holeCards);
 
     this.setData({
       room: poker_room,
       myOpenId: 'debug_self',
       myPlayer: poker_self,
+      myHandRank: poker_myHandRank,
       players: poker_players,
       ringPlayers: poker_ring.ringPlayers,
       ringPositions: poker_ring.ringPositions,
@@ -721,6 +825,7 @@ Page({
 
       const activePlayers = (room.players || []).filter(p => p.chips > 0);
       const activePlayerCount = activePlayers.length;
+      const readyCount = activePlayers.filter(p => p.isReady).length;
       const allPlayersReady = room.status === 'waiting' && activePlayerCount >= 2 && activePlayers.every(p => p.isReady);
 
       const poker_ring = this.poker_computeRingPositions(room.players || [], myOpenId);
@@ -740,13 +845,18 @@ Page({
       const pokerMaxRaise = myPlayer ? (myPlayer.chips + myPlayer.totalBetThisRound) : 100;
       const pokerDefaultRaise = Math.max(pokerMinRaise, room.minRaise || 2);
 
+      // 根据当前公共牌 + 手牌计算牌型
+      const myHandRank = myPlayer ? this.poker_evaluateHand(rawCards, myPlayer.holeCards || []) : '';
+
       const setDataObj = {
+        room: room, isLoading: false, isCreator, isMyTurn, myOpenId, myPlayer, myPlayerIndex,
+        isSpectator, myHandRank,
         room: room, isLoading: false, isCreator, isMyTurn, myOpenId, myPlayer, myPlayerIndex,
         isSpectator,
         ringPlayers: poker_ring.ringPlayers,
         ringPositions: poker_ring.ringPositions,
         ringPlayerIndices: poker_ring.ringPlayerIndices,
-        activePlayerCount,
+        activePlayerCount, readyCount,
         allPlayersHand, confirmedCount, totalToConfirm, allConfirmed,
         currentPhase: room.phase, communityCards: fullCards,
         currentBet: room.currentBet || 0, toCall, callAmount, players: room.players || [],
@@ -963,12 +1073,14 @@ Page({
     const poker_ring = this.poker_computeRingPositions(players || [], myOpenId);
     const activePlayers = (players || []).filter(p => p.chips > 0);
     const activePlayerCount = activePlayers.length;
+    const readyCount = activePlayers.filter(p => p.isReady).length;
     const allPlayersReady = room.status === 'waiting' && activePlayerCount >= 2 && activePlayers.every(p => p.isReady);
     this.setData({
       ringPlayers: poker_ring.ringPlayers,
       ringPositions: poker_ring.ringPositions,
       ringPlayerIndices: poker_ring.ringPlayerIndices,
       players: players,
+      activePlayerCount, readyCount,
       allPlayersReady: allPlayersReady,
       myPlayer: { ...myPlayer, isReady: newIsReady }
     });
@@ -1407,7 +1519,7 @@ Page({
       wx.showToast({ title: '当前无法重买', icon: 'none' });
       return;
     }
-    const amount = Math.floor((room.defaultChips || 10000) / 2);
+    const amount = room.defaultChips || 10000;
     this.setData({ showRebuyModal: true, rebuyAmount: amount });
   },
 
@@ -1432,7 +1544,7 @@ Page({
     wx.showLoading({ title: '补充中...' });
     wx.cloud.callFunction({
       name: 'rebuy',
-      data: { roomId }
+      data: { roomId, amount: rebuyAmount }
     }).then(res => {
       wx.hideLoading();
       const result = (res && res.result) || {};

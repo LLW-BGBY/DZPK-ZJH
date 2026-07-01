@@ -159,6 +159,13 @@
             <text class="zjh-ring-badge badge-allin" wx:elif="{{p.isAllIn}}">ALL IN</text>
             <text class="zjh-ring-badge badge-bust" wx:elif="{{p.chips<=0}}">出局</text>
           </view>
+          <!-- 下注筹码 - 头像卡片外部 -->
+          <block wx:for="{{[ringPositions[idx].betKey]}}" wx:key="*this" wx:for-item="bk">
+            <view class="zjh-ring-bet zjh-ring-bet-{{ringPositions[idx].type}}" wx:if="{{room.status === 'playing' && p.totalBetThisRound > 0}}">
+              <text class="zjh-bet-chip-icon">🪙</text>
+              <text class="zjh-bet-num bet-bounce-{{bk}}">+{{p.totalBetThisRound}}</text>
+            </view>
+          </block>
         </view>
 
         <!-- 牌桌中央区域：底池 + 倒计时 + 日志 + 聊天 -->
@@ -218,25 +225,34 @@
         <view class="zjh-my-hand-wrap {{isMyTurn && room.status === 'playing' ? 'zjh-my-turn' : ''}} {{zjh_outPlayers.indexOf(myPlayer.openId) > -1 || myPlayer.isFolded ? 'zjh-hand-out' : ''}}" wx:if="{{myPlayer && myPlayer.holeCards && myPlayer.holeCards.length > 0}}">
 
           <!-- 我的头像卡 - 与其他玩家样式一致 -->
+          <!-- 己方下注筹码 - 头像上方 -->
+          <view class="zjh-myhand-bet" wx:if="{{room.status === 'playing' && myPlayer.totalBetThisRound > 0}}">
+            <text class="zjh-bet-chip-icon">🪙</text>
+            <text class="zjh-bet-num">+{{myPlayer.totalBetThisRound}}</text>
+          </view>
           <view class="zjh-myhand-avatar-card {{isMyTurn && room.status === 'playing' ? 'zjh-avatar-active' : ''}}">
             <view class="zjh-myhand-dealer-top" wx:if="{{room.dealerIndex===zjh_selfIndex}}">D</view>
             <view class="zjh-myhand-avatar-main {{isMyTurn && room.status === 'playing' ? 'zjh-avatar-main-active' : ''}}">
               <image src="{{myPlayer.avatarUrl}}" mode="aspectFill" wx:if="{{myPlayer.avatarUrl}}" binderror="onAvatarError"></image>
               <text wx:else>{{myPlayer.chips<=0?'💀':myPlayer.isAllIn?'🔥':'👤'}}</text>
             </view>
+            <view class="zjh-my-rebuy" wx:if="{{myPlayer.rebuyCount > 0}}">
+              <text>💩</text><text wx:if="{{myPlayer.rebuyCount > 1}}">💩</text><text wx:if="{{myPlayer.rebuyCount > 2}}">💩</text>
+            </view>
             <text class="zjh-myhand-name">{{myPlayer.name}}</text>
             <text class="zjh-myhand-chips-val">{{myPlayer.chips}}</text>
           </view>
 
-          <!-- 中间内容：状态标签 + 手牌 -->
+          <!-- 中间内容：状态标签 + 牌型 + 手牌 -->
           <view class="zjh-hand-content">
 
-            <!-- 状态标签 -->
+            <!-- 状态标签 + 牌型 -->
             <view class="zjh-handtag">
               <text class="zjh-my-fold-label" wx:if="{{myPlayer.isFolded}}">🏳️ 弃牌</text>
               <text class="zjh-my-out-label" wx:elif="{{zjh_outPlayers.indexOf(myPlayer.openId) > -1}}">❌ OUT</text>
               <text class="zjh-my-dark-label" wx:elif="{{zjh_isDark}}">🔒 暗牌</text>
               <text class="zjh-my-ming-label" wx:else>👁️ 明牌</text>
+              <text class="zjh-my-rank-tag" wx:if="{{zjh_myHandRank && !zjh_isDark}}"> · {{zjh_myHandRank}}</text>
               <text wx:if="{{zjh_callAmount>0 && !myPlayer.isAllIn && !myPlayer.isFolded && zjh_outPlayers.indexOf(myPlayer.openId) === -1}}" class="zjh-my-call-tag">需{{myPlayer.chips<=zjh_callAmount?'全押':'跟注'}} {{zjh_callAmount}}</text>
               <text wx:if="{{isMyTurn}}" class="zjh-my-turn-tag">⏰ 你的回合</text>
             </view>

@@ -8,8 +8,8 @@ function generateRoomNumber() {
 
 function hashPassword(pwd) {
   if (!pwd) return '';
-  const buf = Buffer.from(pwd + '_poker_salt', 'utf8');
-  return buf.toString('base64');
+  const crypto = require('crypto');
+  return crypto.createHash('sha256').update(pwd + '_poker_salt').digest('hex');
 }
 
 exports.main = async (event, context) => {
@@ -24,6 +24,7 @@ exports.main = async (event, context) => {
     zjhMaxRounds = 20,
     maxHands = 10,
     allowMidJoin = false,
+    shortDeck = false,
     playerName,
     playerAvatar,
     password = ''
@@ -108,6 +109,7 @@ exports.main = async (event, context) => {
       bigBlind: vBigBlind,
       maxHands: Math.min(Math.max(parseInt(maxHands) || 10, 3), 50),
       allowMidJoin: !!allowMidJoin,
+      shortDeck: !!shortDeck,
       handCount: 0,
       spectators: [],
       actions: [],

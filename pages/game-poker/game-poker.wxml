@@ -21,54 +21,73 @@
   <!-- 等待界面 -->
   <view class="poker-waiting" wx:if="{{room && room.status === 'waiting' && !(autoStarting && startCountdown === 0)}}">
     <scroll-view class="poker-wait-scroll" scroll-y scroll-with-animation>
+      <!-- 房间信息卡片 -->
       <view class="poker-wait-room-card">
-        <view class="poker-wait-compact-head">
-          <view class="poker-wait-title-wrap">
+        <view class="poker-wait-room-head">
+          <view class="poker-wait-room-left">
+            <text class="poker-wait-room-icon">🏠</text>
             <text class="poker-wait-room-name">{{room.roomName}}</text>
             <text class="poker-wait-lock" wx:if="{{room.hasPassword}}">🔒</text>
           </view>
-          <view class="poker-wait-num-wrap" bindtap="onCopyRoomNumber">
-            <text class="poker-wait-room-num">{{room.roomNumber}}</text>
-            <text class="poker-wait-copy-btn">复制</text>
-          </view>
+          <text class="poker-wait-room-tag {{room.shortDeck?'tag-short':''}}">{{room.shortDeck ? '短牌 6+' : '德州扑克'}}</text>
         </view>
-        <view class="poker-wait-meta">
-          <text class="poker-game-type-badge">德州扑克</text>
-          <text class="poker-wait-meta-dot">·</text>
-          <text>盲注 {{room.smallBlind || room.sb || 1}}/{{room.bigBlind || room.bb || 2}}</text>
-          <text class="poker-wait-meta-dot">·</text>
-          <text>{{players.length}}/{{room.maxPlayers}}人</text>
-          <text class="poker-wait-meta-dot">·</text>
-          <text>{{activePlayerCount}}人有筹码</text>
+        <view class="poker-wait-room-num-row" bindtap="onCopyRoomNumber">
+          <text class="poker-wait-room-num-label">房间号</text>
+          <text class="poker-wait-room-num-val">{{room.roomNumber}}</text>
+          <text class="poker-wait-room-copy">📋 复制</text>
+        </view>
+        <view class="poker-wait-room-info-row">
+          <view class="poker-wait-room-info-item">
+            <text class="poker-wait-room-info-val">盲注 {{room.smallBlind || room.sb || 1}}/{{room.bigBlind || room.bb || 2}}</text>
+          </view>
+          <view class="poker-wait-room-info-item">
+            <text class="poker-wait-room-info-val">{{players.length}}/{{room.maxPlayers}}人</text>
+          </view>
+          <view class="poker-wait-room-info-item">
+            <text class="poker-wait-room-info-val">{{activePlayerCount}}有筹码</text>
+          </view>
         </view>
         <view class="poker-wait-action-row">
           <view class="poker-wait-btn poker-wait-btn-invite" bindtap="onShareRoom">
-            <text class="poker-wait-btn-icon">📤</text>
-            <text class="poker-wait-btn-label">邀请好友</text>
+            <text>📤 邀请好友</text>
           </view>
           <view class="poker-wait-btn poker-wait-btn-leave" bindtap="onLeaveRoom">
-            <text class="poker-wait-btn-icon">🚪</text>
-            <text class="poker-wait-btn-label">离开房间</text>
+            <text>🚪 离开</text>
           </view>
         </view>
       </view>
-      <text class="poker-wait-section-title">玩家列表</text>
+      <!-- 玩家列表 -->
+      <view class="poker-wait-section-head">
+        <text class="poker-wait-section-title">👥 玩家</text>
+        <text class="poker-wait-ready-count">{{readyCount}}/{{activePlayerCount}} 已准备</text>
+      </view>
       <view class="poker-wait-list">
         <view class="poker-wait-card {{p.isReady?'ready':''}} {{p.chips<=0?'bust':''}}" wx:for="{{players}}" wx:key="openId" wx:for-item="p">
-          <image src="{{p.avatarUrl}}" mode="aspectFill" class="poker-wait-avatar" wx:if="{{p.avatarUrl}}" binderror="onAvatarError" data-idx="{{index}}"></image>
-          <text wx:else class="poker-wait-avatar-txt">{{p.chips>0?(p.isReady?'✓':'👤'):'💀'}}</text>
-          <text class="poker-wait-name">{{p.name}}</text>
-          <text wx:if="{{p.chips>0}}" class="poker-wait-chips">{{p.chips}}筹码</text>
-          <text wx:else class="poker-wait-bust">出局</text>
-          <text wx:if="{{p.chips>0}}" class="poker-wait-ready-badge {{p.isReady?'done':''}}">{{p.isReady?'已准备':'未准备'}}</text>
+          <view class="poker-wait-card-avatar">
+            <image src="{{p.avatarUrl}}" mode="aspectFill" wx:if="{{p.avatarUrl}}" binderror="onAvatarError" data-idx="{{index}}"></image>
+            <text wx:else>{{p.chips>0?(p.isReady?'✓':'👤'):'💀'}}</text>
+          </view>
+          <view class="poker-wait-card-info">
+            <text class="poker-wait-card-name">{{p.name}}</text>
+            <text wx:if="{{p.chips>0}}" class="poker-wait-card-chips">🪙 {{p.chips}}</text>
+            <text wx:else class="poker-wait-card-bust">💀 出局</text>
+          </view>
+          <view wx:if="{{p.chips>0}}" class="poker-wait-card-status {{p.isReady?'status-ready':''}}">
+            <text>{{p.isReady?'已准备':'未准备'}}</text>
+          </view>
         </view>
         <view class="poker-wait-card empty" wx:for="{{room.maxPlayers - players.length}}" wx:key="idx">
-          <text class="poker-wait-avatar-txt">➕</text>
-          <text class="poker-wait-name">等待加入</text>
+          <view class="poker-wait-card-avatar">
+            <text>➕</text>
+          </view>
+          <view class="poker-wait-card-info">
+            <text class="poker-wait-card-name">虚位以待</text>
+          </view>
         </view>
       </view>
+      <!-- 聊天 -->
       <view class="poker-wait-chat-log" wx:if="{{chatMessages.length > 0}}">
-        <text class="poker-wait-chat-title">💬 聊天记录</text>
+        <text class="poker-wait-chat-title">💬 聊天</text>
         <scroll-view class="poker-wait-chat-scroll" scroll-y scroll-into-view="poker-wait-chat-{{chatMessages.length-1}}">
           <view class="poker-wait-chat-item" wx:for="{{chatMessages}}" wx:key="time" id="poker-wait-chat-{{index}}">
             <text class="poker-wait-chat-name">{{item.name}}:</text>
@@ -77,21 +96,24 @@
         </scroll-view>
       </view>
     </scroll-view>
+    <!-- 底部操作栏 -->
     <view class="poker-wait-bottom">
-      <view class="poker-wait-ready-btn {{myPlayer.isReady?'done':''}}" bindtap="onReadyToggle" wx:if="{{myPlayer}}">
-        <text>{{myPlayer.isReady?'✓ 已准备':'准备'}}</text>
-      </view>
-      <view class="poker-wait-chat-btn" bindtap="onToggleChat" wx:if="{{myPlayer}}">
-        <text>💬 聊天</text>
-        <view class="poker-wait-chat-unread" wx:if="{{chatUnread > 0}}">{{chatUnread}}</view>
-      </view>
-      <view class="poker-wait-start-btn" bindtap="onStartGame" wx:if="{{isCreator && allPlayersReady && startCountdown <= 0}}">
-        <text>开始游戏</text>
-      </view>
       <view class="poker-wait-countdown" wx:if="{{startCountdown > 0}}">
         <text class="poker-wait-countdown-icon">⏱</text>
         <text class="poker-wait-countdown-label">{{startCountdown}}秒后自动开始</text>
         <text class="poker-wait-countdown-cancel" wx:if="{{isCreator}}" bindtap="onCancelCountdown">取消</text>
+      </view>
+      <view class="poker-wait-start-btn" bindtap="onStartGame" wx:if="{{isCreator && allPlayersReady && startCountdown <= 0}}">
+        <text>🚀 开始游戏</text>
+      </view>
+      <view class="poker-wait-bottom-row">
+        <view class="poker-wait-ready-btn {{myPlayer.isReady?'done':''}}" bindtap="onReadyToggle" wx:if="{{myPlayer}}">
+          <text>{{myPlayer.isReady?'✓ 已准备':'👆 准备'}}</text>
+        </view>
+        <view class="poker-wait-chat-btn" bindtap="onToggleChat" wx:if="{{myPlayer}}">
+          <text>💬</text>
+          <view class="poker-wait-chat-unread" wx:if="{{chatUnread > 0}}">{{chatUnread}}</view>
+        </view>
       </view>
     </view>
   </view>
@@ -171,7 +193,6 @@
             </view>
             <text class="poker-ring-name">{{p.name}}</text>
             <text class="poker-ring-chips">{{p.chips}}</text>
-            <text class="poker-ring-bet" wx:if="{{room.status === 'playing' && p.totalBetThisRound > 0}}">下注 {{p.totalBetThisRound}}</text>
             <view class="poker-ring-rebuy" wx:if="{{p.rebuyCount > 0}}">
               <text>💩</text>
               <text wx:if="{{p.rebuyCount > 1}}">💩</text>
@@ -181,23 +202,38 @@
             <text class="poker-ring-badge badge-allin" wx:elif="{{p.isAllIn}}">ALL IN</text>
             <text class="poker-ring-badge badge-bust" wx:elif="{{p.chips===0 && !p.isActive}}">破产</text>
           </view>
+          <!-- 下注筹码 - 头像卡片外部 -->
+          <block wx:for="{{[ringPositions[idx].betKey]}}" wx:key="*this" wx:for-item="bk">
+            <view class="poker-ring-bet poker-ring-bet-{{ringPositions[idx].type}}" wx:if="{{room.status === 'playing' && p.totalBetThisRound > 0}}">
+              <text class="poker-bet-chip-icon">🪙</text>
+              <text class="poker-bet-num bet-bounce-{{bk}}">+{{p.totalBetThisRound}}</text>
+            </view>
+          </block>
         </view>
 
         <!-- 我方手牌模块 - 牌桌内部底部 -->
         <view class="poker-my-hand-wrap" wx:if="{{myPlayer.holeCards && myPlayer.holeCards.length > 0}}">
 
-          <!-- 高牌标签 -->
+          <!-- 牌型标签 -->
           <view class="poker-handtag">
-            <text>高牌</text>
+            <text>{{myHandRank || '等待发牌'}}</text>
             <text class="poker-turn-countdown" wx:if="{{countdown > 0 && isMyTurn}}">⏰ {{countdown}}s</text>
           </view>
 
           <!-- 手牌两张 + 信息 - 根据花色设置颜色 -->
           <view class="poker-myhand-row">
+            <!-- 己方下注筹码 - 头像上方 -->
+            <view class="poker-my-bet" wx:if="{{room.status === 'playing' && myPlayer.totalBetThisRound > 0}}">
+              <text class="poker-bet-chip-icon">🪙</text>
+              <text class="poker-bet-num">+{{myPlayer.totalBetThisRound}}</text>
+            </view>
             <view class="poker-my-avatar-wrap">
               <view class="poker-my-avatar {{isMyTurn && room.status === 'playing' ? 'avatar-active' : ''}}">
                 <image src="{{myPlayer.avatarUrl}}" mode="aspectFill" wx:if="{{myPlayer.avatarUrl}}" binderror="onAvatarError"></image>
                 <text wx:else>👤</text>
+              </view>
+              <view class="poker-my-rebuy" wx:if="{{myPlayer.rebuyCount > 0}}">
+                <text>💩</text><text wx:if="{{myPlayer.rebuyCount > 1}}">💩</text><text wx:if="{{myPlayer.rebuyCount > 2}}">💩</text>
               </view>
               <text class="poker-my-name">{{myPlayer.name}}</text>
               <text class="poker-my-chips">{{myPlayer.chips}}</text>

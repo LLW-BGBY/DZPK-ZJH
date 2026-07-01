@@ -18,11 +18,13 @@ Page({
     zjhMaxRounds: 20,
     maxHands: 10,
     allowMidJoin: false,
+    shortDeck: false,
     enablePassword: false,
     roomPassword: '',
     joinRoomNumber: '',
     joinNeedPassword: false,
     joinRoomPassword: '',
+    pastedRoomNumber: '',
     swipedRoomId: '',
     touchStartX: 0,
     touchStartY: 0,
@@ -197,6 +199,18 @@ Page({
     this.setData({ enablePassword: e.detail.value, roomPassword: '' });
   },
 
+  onChipPreset(e) {
+    const val = parseInt(e.currentTarget.dataset.value);
+    if (!isNaN(val)) this.setData({ defaultChips: val });
+  },
+
+  onBlindPreset(e) {
+    const sb = parseInt(e.currentTarget.dataset.sb);
+    const bb = parseInt(e.currentTarget.dataset.bb);
+    if (!isNaN(sb)) this.setData({ smallBlind: sb });
+    if (!isNaN(bb)) this.setData({ bigBlind: bb });
+  },
+
   onRoomPasswordInput(e) {
     this.setData({ roomPassword: e.detail.value });
   },
@@ -296,6 +310,10 @@ Page({
     this.setData({ allowMidJoin: e.detail.value });
   },
 
+  onShortDeckChange(e) {
+    this.setData({ shortDeck: e.detail.value });
+  },
+
   createRoom() {
     if (this.data.isLoading) return;
 
@@ -316,6 +334,7 @@ Page({
       defaultChips: parseInt(this.data.defaultChips) || 10000,
       maxHands: parseInt(this.data.maxHands) || 10,
       allowMidJoin: this.data.allowMidJoin,
+      shortDeck: this.data.shortDeck,
       password: this.data.enablePassword ? this.data.roomPassword.trim() : '',
       playerName: playerInfo.name,
       playerAvatar: playerInfo.avatarUrl
@@ -348,7 +367,7 @@ Page({
   },
 
   onShowJoinModal() {
-    this.setData({ showJoinModal: true, joinRoomNumber: '', joinNeedPassword: false, joinRoomPassword: '' });
+    this.setData({ showJoinModal: true, joinRoomNumber: '', joinNeedPassword: false, joinRoomPassword: '', pastedRoomNumber: '' });
   },
 
   onHideJoinModal() {
@@ -367,6 +386,48 @@ Page({
 
   onJoinPasswordInput(e) {
     this.setData({ joinRoomPassword: e.detail.value });
+  },
+
+  onPasteRoomNumber() {
+    wx.getClipboardData({
+      success: (res) => {
+        const text = (res.data || '').trim();
+        if (!text) {
+          wx.showToast({ title: '剪贴板为空', icon: 'none' });
+          return;
+        }
+        // 提取文本中的6位数字
+        const match = text.match(/\d{6}/);
+        if (match) {
+          const roomNumber = match[0];
+          this.setData({
+            joinRoomNumber: roomNumber,
+            pastedRoomNumber: roomNumber
+          });
+          this.checkRoomPassword(roomNumber);
+          if (text !== roomNumber) {
+            wx.showToast({ title: '已粘贴: ' + roomNumber, icon: 'success', duration: 1500 });
+          }
+        } else {
+          // 没有6位数字，对短数字也尝试粘贴
+          const anyNum = text.match(/\d+/);
+          if (anyNum && anyNum[0].length >= 4) {
+            const partial = anyNum[0].substring(0, 6);
+            this.setData({
+              joinRoomNumber: partial,
+              pastedRoomNumber: text.substring(0, 20)
+            });
+            wx.showToast({ title: '粘贴: ' + partial + ' (可能不完整)', icon: 'none' });
+          } else {
+            this.setData({ pastedRoomNumber: text.substring(0, 20) });
+            wx.showToast({ title: '未识别到房间号', icon: 'none' });
+          }
+        }
+      },
+      fail: () => {
+        wx.showToast({ title: '读取剪贴板失败，请手动输入', icon: 'none' });
+      }
+    });
   },
 
   checkRoomPassword(roomNumber) {

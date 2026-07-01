@@ -4,6 +4,9 @@
 // 复用现有房间 watch、筹码、底池等逻辑
 // ============================
 
+// 下注筹码动画版本追踪
+let _zjhBetVers = {};
+
 Page({
   data: {
     // 房间基础
@@ -31,6 +34,7 @@ Page({
 
     // 游戏状态
     zjh_phase: '',
+    zjh_myHandRank: '',
     zjh_gameHistory: [],
     zjh_showActionButtons: false,
     zjh_showWaitingHint: false,
@@ -79,6 +83,7 @@ Page({
     showChat: false,
     chatUnread: 0,
     chatMessages: [],
+    recentChatMessages: [],
     chatInput: '',
 
     // 准备阶段倒计时（内联显示，不弹窗）
@@ -105,6 +110,7 @@ Page({
     maxHands: 10,
     isFinalHand: false,
     activePlayerCount: 0,
+    readyCount: 0,
 
     // 比牌动画
     zjh_showCompareAnim: false,
@@ -122,6 +128,7 @@ Page({
     _zjh_compareClosing: false,
     zjh_compareLoser: '',
     zjh_outPlayers: [],
+    zjh_comparingPlayers: [],
     zjh_isSpectator: false,
     _lastZjhRoundCount: -1,
     _zjhCompareCloseTimer: null,
@@ -250,10 +257,54 @@ Page({
     const scheme = positionSchemes[Math.min(total, 9)] || positionSchemes[9];
     const positions = [];
     for (let i = 0; i < total; i++) {
-      positions.push(scheme[i % scheme.length]);
+      const pos = scheme[i % scheme.length];
+      // 根据位置判断类型：左侧(left)头像在左筹码在右，右侧(right)头像在右筹码在左，其余顶部(top)筹码在下方
+      let type = 'top';
+      if (pos.left === '0%') type = 'left';
+      else if (pos.left === '100%') type = 'right';
+      // 筹码动画版本：每次下注金额变化时递增，触发 CSS 动画重播
+      const player = ringPlayers[i];
+      const betKey = player.openId + '_bet';
+      const prev = _zjhBetVers[betKey];
+      const curBet = player.totalBetThisRound || 0;
+      let ver = 0;
+      if (!prev || prev.bet !== curBet) {
+        ver = prev ? prev.ver + 1 : 0;
+        _zjhBetVers[betKey] = { bet: curBet, ver: ver };
+      } else {
+        ver = prev.ver;
+      }
+      positions.push({ top: pos.top, left: pos.left, type: type, betKey: ver });
     }
 
     return { ringPlayers, ringPositions: positions, ringIndices };
+  },
+
+  // 炸金花三张牌牌型评估
+  zjh_evaluateHand(holeCards) {
+    if (!holeCards || holeCards.length < 3) return '';
+    const rankMap = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14 };
+    const cards = holeCards.map(c => ({ ...c, rank: rankMap[c.value] || 0 }));
+    const ranks = cards.map(c => c.rank).sort((a, b) => b - a);
+    const suits = cards.map(c => c.suit);
+
+    const isFlush = suits.every(s => s === suits[0]);
+    const isTriple = ranks[0] === ranks[1] && ranks[1] === ranks[2];
+
+    // 顺子检测（含 A-2-3）
+    let isStraight = false;
+    if (ranks[0] - ranks[2] === 2 && new Set(ranks).size === 3) {
+      isStraight = true;
+    } else if (ranks[0] === 14 && ranks[1] === 3 && ranks[2] === 2) {
+      isStraight = true; // A-3-2
+    }
+
+    if (isTriple) return '豹子';
+    if (isFlush && isStraight) return '同花顺';
+    if (isFlush) return '同花';
+    if (isStraight) return '顺子';
+    if (ranks[0] === ranks[1] || ranks[1] === ranks[2]) return '对子';
+    return '散牌';
   },
 
   onLoad(options) {
@@ -492,6 +543,7 @@ Page({
       zjh_pot: 2400,
       zjh_currentBet: 200,
       zjh_isDark: true,
+      zjh_myHandRank: this.zjh_evaluateHand(zjh_self.holeCards),
       zjh_callAmount: 200,
       zjh_roundCount: 8,
       zjh_maxRounds: 20,
@@ -699,9 +751,28 @@ Page({
 
     // 新回合开始，重置所有OUT状态
     if (zjh_roundCount !== this.data._lastZjhRoundCount && this.data._lastZjhRoundCount !== -1) {
-      this.setData({ zjh_outPlayers: [] });
+      this.setData({ zjh_outPlayers: [], zjh_comparingPlayers: [] });
     }
     this.setData({ _lastZjhRoundCount: zjh_roundCount });
+
+    // 从服务器 zjh_lastCompare 推导比牌状态和OUT玩家（所有玩家可见）
+    let zjh_comparingPlayers = this.data.zjh_comparingPlayers || [];
+    let zjh_outPlayers = this.data.zjh_outPlayers || [];
+    const zjh_lastCompare = zjh_room.zjh_lastCompare;
+    if (zjh_lastCompare && zjh_lastCompare.initiatorOpenId && zjh_lastCompare.targetOpenId) {
+      const zjh_compareTimestamp = zjh_lastCompare.timestamp || 0;
+      const zjh_compareAge = Date.now() - zjh_compareTimestamp;
+      // 只处理 15 秒内的比牌（超时的忽略，防止旧数据污染）
+      if (zjh_compareAge < 15000) {
+        zjh_comparingPlayers = [zjh_lastCompare.initiatorOpenId, zjh_lastCompare.targetOpenId];
+        // 推导输家
+        const zjh_result = zjh_lastCompare.result;
+        const zjh_loser = zjh_result === 'win' ? zjh_lastCompare.targetOpenId
+          : zjh_result === 'lose' ? zjh_lastCompare.initiatorOpenId
+          : zjh_lastCompare.initiatorOpenId; // 平局发起者输
+        zjh_outPlayers = [...new Set([...zjh_outPlayers, zjh_loser])];
+      }
+    }
 
     const zjh_showActionButtons = zjh_isMyTurn && !zjh_isGameEnded && zjh_myPlayer &&
       zjh_myPlayer.isActive && !zjh_myPlayer.isAllIn;
@@ -823,6 +894,7 @@ Page({
 
     const zjh_activePlayers = (zjh_room.players || []).filter(p => p.chips > 0);
     const zjh_activePlayerCount = zjh_activePlayers.length;
+    const zjh_readyCount = zjh_activePlayers.filter(p => p.isReady).length;
     const allPlayersReady = zjh_room.status === 'waiting' && zjh_activePlayerCount >= 2 && zjh_activePlayers.every(p => p.isReady);
 
     // 底池变化检测 —— 用于触发数字跳动动画
@@ -833,11 +905,12 @@ Page({
       room: zjh_room, isLoading: false, isCreator: zjh_isCreator, isMyTurn: zjh_isMyTurn,
       myOpenId: zjh_myOpenId, myPlayer: zjh_myPlayer, zjh_isSpectator,
       activePlayerCount: zjh_activePlayerCount,
+      readyCount: zjh_readyCount,
 
       zjh_players: (zjh_room.players || []).map(p => ({
         ...p,
         isFolded: !p.isActive && !p.isAllIn,
-        isComparing: (zjh_room.zjh_comparingPlayers || this.data.zjh_comparingPlayers || []).indexOf(p.openId) > -1
+        isComparing: zjh_comparingPlayers.indexOf(p.openId) > -1
       })),
       zjh_playerPositions: this.zjh_computePlayerPositions(zjh_room.players || [], zjh_myOpenId),
       ...this.zjh_computeRingData(zjh_room.players || [], zjh_myOpenId),
@@ -846,6 +919,7 @@ Page({
       zjh_potChanged: false,
       zjh_currentBet: zjh_currentBet,
       zjh_isDark: zjh_isDark,
+      zjh_myHandRank: zjh_myPlayer ? this.zjh_evaluateHand(zjh_myPlayer.holeCards || []) : '',
       zjh_callAmount: zjh_callAmount,
       zjh_roundCount: zjh_roundCount,
       zjh_maxRounds: zjh_maxRounds,
@@ -866,9 +940,12 @@ Page({
       zjh_maxRaise: zjh_maxRaise,
       zjh_quickRaiseOptions: zjh_quickRaiseOptions,
       zjh_compareTargets: zjh_compareTargets,
+      zjh_comparingPlayers: zjh_comparingPlayers,
+      zjh_outPlayers: zjh_outPlayers,
       zjh_pendingAction: '',
       autoStarting: zjh_autoStarting,
       chatUnread: zjh_chatUnread,
+      recentChatMessages: zjh_newChatMessages.slice(-2),
       canRebuy: zjh_canRebuy,
       allPlayersReady,
       handCount: zjh_handCount,
@@ -1349,14 +1426,17 @@ Page({
     const zjh_ring = this.zjh_computeRingData(zjh_updatedPlayers || [], zjh_myOpenId);
     const zjh_activePlayers = (zjh_updatedPlayers || []).filter(p => p.chips > 0);
     const zjh_activePlayerCount = zjh_activePlayers.length;
+    const zjh_readyCount = zjh_activePlayers.filter(p => p.isReady).length;
     const zjh_allPlayersReady = room.status === 'waiting' && zjh_activePlayerCount >= 2 && zjh_activePlayers.every(p => p.isReady);
     this.setData({
       zjh_players: zjh_updatedPlayers,
-      zjh_playerPositions: zjh_ring.ringPositions,
+      zjh_playerPositions: this.zjh_computePlayerPositions(zjh_updatedPlayers || [], zjh_myOpenId),
       zjh_playerIndices: zjh_ring.ringIndices,
       ringPlayers: zjh_ring.ringPlayers,
       ringPositions: zjh_ring.ringPositions,
       ringIndices: zjh_ring.ringIndices,
+      activePlayerCount: zjh_activePlayerCount,
+      readyCount: zjh_readyCount,
       allPlayersReady: zjh_allPlayersReady,
       myPlayer: { ...myPlayer, isReady: zjh_newIsReady }
     });
@@ -1709,31 +1789,47 @@ Page({
   },
 
   onToggleChat() {
-    this.setData({ showChat: !this.data.showChat, chatUnread: 0 });
+    const showChat = !this.data.showChat;
+    const data = { showChat };
+    if (showChat) data.chatUnread = 0;
+    this.setData(data);
   },
 
   onChatInput(e) { this.setData({ chatInput: e.detail.value }); },
 
   onSendChat() {
-    const { chatInput, roomId, myPlayer } = this.data;
-    if (!chatInput.trim()) return;
-    const zjh_name = myPlayer ? myPlayer.name : '玩家';
-    wx.cloud.callFunction({
-      name: 'sendChat',
-      data: { roomId, message: chatInput.trim(), name: zjh_name }
-    }).then(() => { this.setData({ chatInput: '' }); });
+    const text = this.data.chatInput.trim();
+    if (!text) return;
+    this.zjh_sendChatMessage(text);
+    this.setData({ chatInput: '' });
   },
 
   onSendQuickMsg(e) {
     const zjh_msg = e.currentTarget.dataset.msg;
     if (!zjh_msg) return;
     const zjh_message = zjh_msg.emoji + ' ' + zjh_msg.text;
+    this.zjh_sendChatMessage(zjh_message);
+  },
+
+  zjh_sendChatMessage(message) {
     const { roomId, myPlayer } = this.data;
-    if (!roomId || !myPlayer) return;
+    if (!myPlayer || !roomId) return;
+
+    const newMsg = {
+      name: myPlayer.name,
+      message,
+      type: 'user',
+      time: Date.now()
+    };
+
+    const localChatMessages = [...(this.data.chatMessages || []), newMsg].slice(-20);
+    const recentChatMessages = localChatMessages.slice(-2);
+    this.setData({ chatMessages: localChatMessages, recentChatMessages: recentChatMessages });
+
     wx.cloud.callFunction({
       name: 'sendChat',
-      data: { roomId, message: zjh_message, name: myPlayer.name }
-    });
+      data: { roomId, message: message, name: myPlayer.name }
+    }).catch(() => {});
   },
 
   stopBubble() {},

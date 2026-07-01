@@ -82,6 +82,9 @@ async function zjh_saveGameRecord(zjh_roomId, zjh_room, zjh_players, zjh_history
         avatarUrl: p.avatarUrl || '',
         chips: p.chips,
         totalBet: (p.totalBet || 0) + (p.totalBetThisRound || 0),
+        profit: p.profit || 0,
+        winAmount: p.winAmount || 0,
+        lossAmount: p.lossAmount || 0,
         isActive: p.isActive,
         isAllIn: p.isAllIn,
         zjh_isDark: p.zjh_isDark,
@@ -243,7 +246,9 @@ exports.main = async (event, context) => {
           handResult: null,
           rebuyCount: 0,
           seat: zjh_players.length + i,
-          joinedAt: zjh_joinTime
+          joinedAt: zjh_joinTime,
+          zjh_isDark: true,
+          confirmedNext: false
         }));
         zjh_players.push(...zjh_promoted);
       }
@@ -306,7 +311,8 @@ exports.main = async (event, context) => {
           isReady: false, isActive: true, isAllIn: false, hasActed: false,
           totalBetThisRound: 0, totalBet: 0, chips: zjh_room.defaultChips || 10000,
           holeCards: [], handResult: null, rebuyCount: 0,
-          seat: zjh_players.length + i, joinedAt: zjh_jt
+          seat: zjh_players.length + i, joinedAt: zjh_jt,
+          zjh_isDark: true, confirmedNext: false
         }));
         zjh_players.push(...zjh_promoted2);
       }
@@ -370,7 +376,8 @@ exports.main = async (event, context) => {
             isReady: false, isActive: true, isAllIn: false, hasActed: false,
             totalBetThisRound: 0, totalBet: 0, chips: zjh_room.defaultChips || 10000,
             holeCards: [], handResult: null, rebuyCount: 0,
-            seat: zjh_players.length + i, joinedAt: zjh_jt3
+            seat: zjh_players.length + i, joinedAt: zjh_jt3,
+            zjh_isDark: true, confirmedNext: false
           }));
           zjh_players.push(...zjh_promoted3);
         }

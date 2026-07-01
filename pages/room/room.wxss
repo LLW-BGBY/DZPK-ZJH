@@ -70,8 +70,21 @@
 .label{color:#8a9a8e;font-size:24rpx;display:block;margin-bottom:6rpx;font-weight:600}
 .input{background:rgba(10,31,18,0.6);border:1px solid rgba(42,90,42,0.5);border-radius:16rpx;padding:16rpx 20rpx;color:#fff;font-size:28rpx;width:100%;height:68rpx;box-sizing:border-box;line-height:36rpx;transition:all 0.2s ease}
 .input:focus{border-color:#f0d878;box-shadow:0 0 12rpx rgba(240,216,120,0.15)}
-.input-room{font-size:40rpx;letter-spacing:8rpx;text-align:center;font-weight:800}
+.input-room{font-size:36rpx;letter-spacing:6rpx;text-align:center;font-weight:800;flex:1;min-width:0}
 .input-area{height:160rpx;line-height:1.5}
+
+/* Input with paste button */
+.input-with-btn{display:flex;align-items:center;gap:12rpx}
+.paste-btn{flex-shrink:0;display:flex;align-items:center;gap:4rpx;padding:16rpx 18rpx;background:rgba(240,216,120,0.08);border:1px solid rgba(240,216,120,0.25);border-radius:16rpx;color:#f0d878;font-size:22rpx;font-weight:600;white-space:nowrap;height:68rpx;box-sizing:border-box;transition:all .15s ease;line-height:1}
+.paste-btn:active{transform:scale(.95);background:rgba(240,216,120,.18);border-color:rgba(240,216,120,.45)}
+
+/* Paste hint */
+.label-tip{color:#8a9a8e;font-size:22rpx;margin-top:8rpx;display:block;text-align:center;line-height:1.4}
+
+/* Tips box in join modal */
+.tips-box{display:flex;align-items:center;gap:10rpx;padding:16rpx 20rpx;background:rgba(240,216,120,.06);border-radius:16rpx;border:1rpx solid rgba(240,216,120,.1)}
+.tips-icon{font-size:26rpx;flex-shrink:0}
+.tips-text{color:#8a9a8e;font-size:22rpx;line-height:1.5}
 
 /* Buttons */
 .modal-buttons{display:flex;gap:20rpx;margin-top:24rpx;padding:0}
@@ -120,6 +133,64 @@
 .btn-admin{background:rgba(240,216,120,0.15);color:#f0d878;border:1px solid rgba(240,216,120,0.3);border-radius:32rpx;padding:16rpx 40rpx;font-size:26rpx;font-weight:700;transition:all 0.2s ease}
 .btn-admin::after{border:none}
 .btn-admin:active{transform:scale(0.96);background:rgba(240,216,120,0.25)}
+
+/* Form section grouping (compact) */
+.preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+  margin-top: 8rpx;
+}
+.preset-chip {
+  padding: 6rpx 18rpx;
+  border-radius: 16rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  background: rgba(10,31,18,0.6);
+  border: 1px solid rgba(42,90,42,0.4);
+  color: #8a9a8e;
+  transition: all 0.15s ease;
+}
+.preset-chip:active {
+  transform: scale(0.94);
+}
+.preset-chip.active {
+  background: rgba(240,216,120,0.15);
+  border-color: #f0d878;
+  color: #f0d878;
+}
+
+/* Compact switch row */
+.switch-compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12rpx 0;
+  border-bottom: 1rpx solid rgba(42,90,42,0.2);
+  color: #c0c0c0;
+  font-size: 26rpx;
+}
+.switch-compact switch {
+  transform: scale(0.85);
+  transform-origin: right center;
+}
+
+/* Blinds input pair: [小盲]/[大盲] in one row */
+.input-pair {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+}
+.input-pair-half {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+.input-pair-sep {
+  color: #8a9a8e;
+  font-size: 26rpx;
+  flex-shrink: 0;
+}
 
 /* Animations */
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}

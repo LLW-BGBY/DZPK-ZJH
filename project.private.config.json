@@ -1,19 +1,19 @@
 {
   "libVersion": "3.16.1",
-  "projectname": "2.8.0",
+  "projectname": "3.1.7",
   "condition": {
     "miniprogram": {
       "list": [
         {
-          "name": "炸金花游戏",
-          "pathName": "pages/game-zjh/game-zjh",
+          "name": "pages/game-poker/game-poker",
+          "pathName": "pages/game-poker/game-poker",
           "query": "",
           "scene": null,
           "launchMode": "default"
         },
         {
-          "name": "德州扑克游戏",
-          "pathName": "pages/game-poker/game-poker",
+          "name": "pages/game-zjh/game-zjh",
+          "pathName": "pages/game-zjh/game-zjh",
           "query": "",
           "launchMode": "default",
           "scene": null

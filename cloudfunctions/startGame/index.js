@@ -5,12 +5,16 @@ const _ = db.command;
 
 const SUITS = ['S', 'H', 'D', 'C'];
 const VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+const SHORT_DECK_VALUES = ['6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
 
-function createDeck() {
+function createDeck(shortDeck) {
+  const vals = shortDeck ? SHORT_DECK_VALUES : VALUES;
   const deck = [];
   for (let s = 0; s < SUITS.length; s++) {
-    for (let v = 0; v < VALUES.length; v++) {
-      deck.push({ value: VALUES[v], suit: SUITS[s], rank: v + 2 });
+    for (let v = 0; v < vals.length; v++) {
+      const rankMap = { '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14,
+                         '2': 2, '3': 3, '4': 4, '5': 5 };
+      deck.push({ value: vals[v], suit: SUITS[s], rank: rankMap[vals[v]] });
     }
   }
   return deck;
@@ -24,7 +28,7 @@ function shuffle(deck) {
   return deck;
 }
 
-function evaluateBestHand(cards) {
+function evaluateBestHand(cards, shortDeck) {
   const rankMap = { '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
   const ranks = cards.map(c => rankMap[c.value]).sort((a, b) => b - a);
   const suits = cards.map(c => c.suit);
@@ -39,6 +43,8 @@ function evaluateBestHand(cards) {
       if (uniqueRanks[i] - uniqueRanks[i + 4] === 4) return true;
     }
     if (uniqueRanks.includes(14) && uniqueRanks.includes(2) && uniqueRanks.includes(3) && uniqueRanks.includes(4) && uniqueRanks.includes(5)) return true;
+    // 短牌：A-6-7-8-9 也是顺子
+    if (shortDeck && uniqueRanks.includes(14) && uniqueRanks.includes(9) && uniqueRanks.includes(8) && uniqueRanks.includes(7) && uniqueRanks.includes(6)) return true;
     return false;
   })();
 
@@ -52,6 +58,10 @@ function evaluateBestHand(cards) {
   }
   if (sortedUniqueRanks.includes(14) && sortedUniqueRanks.includes(2) && sortedUniqueRanks.includes(3) && sortedUniqueRanks.includes(4) && sortedUniqueRanks.includes(5)) {
     straightRanks.push([5, 4, 3, 2, 1]);
+  }
+  // 短牌：A-6-7-8-9 (A作为5)
+  if (shortDeck && sortedUniqueRanks.includes(14) && sortedUniqueRanks.includes(9) && sortedUniqueRanks.includes(8) && sortedUniqueRanks.includes(7) && sortedUniqueRanks.includes(6)) {
+    straightRanks.push([9, 8, 7, 6, 5]);
   }
 
   const getFlushCards = () => {
@@ -81,22 +91,24 @@ function evaluateBestHand(cards) {
     const kicker = ranks.find(r => r !== quadRank);
     return { rank: 8, name: '四条', value: [quadRank, quadRank, quadRank, quadRank, kicker] };
   }
+  // 短牌: 同花(rank 7) > 葫芦(rank 6)
+  if (isFlush) {
+    const fc = getFlushCards();
+    return { rank: shortDeck ? 7 : 6, name: '同花', value: fc };
+  }
   if (counts[0] === 3 && counts[1] === 2) {
     const tripRank = parseInt(Object.keys(rankCounts).find(k => rankCounts[k] === 3));
     const pairRank = parseInt(Object.keys(rankCounts).find(k => rankCounts[k] === 2 && k !== tripRank.toString()));
-    return { rank: 7, name: '葫芦', value: [tripRank, tripRank, tripRank, pairRank, pairRank] };
+    return { rank: shortDeck ? 6 : 7, name: '葫芦', value: [tripRank, tripRank, tripRank, pairRank, pairRank] };
   }
-  if (isFlush) {
-    const fc = getFlushCards();
-    return { rank: 6, name: '同花', value: fc };
-  }
-  if (isStraight) {
-    return { rank: 5, name: '顺子', value: straightRanks[0] || [14, 13, 12, 11, 10] };
-  }
+  // 短牌: 三条(rank 5) > 顺子(rank 4)
   if (counts[0] === 3) {
     const tripRank = parseInt(Object.keys(rankCounts).find(k => rankCounts[k] === 3));
     const kickers = ranks.filter(r => r !== tripRank).slice(0, 2);
-    return { rank: 4, name: '三条', value: [tripRank, tripRank, tripRank, ...kickers] };
+    return { rank: shortDeck ? 5 : 4, name: '三条', value: [tripRank, tripRank, tripRank, ...kickers] };
+  }
+  if (isStraight) {
+    return { rank: shortDeck ? 4 : 5, name: '顺子', value: straightRanks[0] || [14, 13, 12, 11, 10] };
   }
   if (counts[0] === 2 && counts[1] === 2) {
     const pairs = Object.keys(rankCounts).filter(k => rankCounts[k] === 2).map(Number).sort((a, b) => b - a);
@@ -154,8 +166,9 @@ exports.main = async (event, context) => {
 
     // 计算新回合数
     const newHandCount = (room.handCount || 0) + 1;
+    const isShortDeck = !!room.shortDeck;
 
-    const deck = shuffle(createDeck());
+    const deck = shuffle(createDeck(isShortDeck));
     const playerCount = activePlayers.length;
 
     // 如果庄家已出局，找下一个有筹码的人当庄家
